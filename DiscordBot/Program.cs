@@ -1,50 +1,69 @@
-﻿// See https://aka.ms/new-console-template for more information
-
-using Discord;
+﻿using Discord;
 using Discord.WebSocket;
+using DiscordBot.Channels;
+using DiscordBot.Config;
+using DiscordBot.ConfigModels;
 using Microsoft.Extensions.Configuration;
+using System.Text.Json;
+using System.Threading.Channels;
 
-var config = new ConfigurationBuilder()
-    .AddJsonFile("appsettings.json")
-    .AddEnvironmentVariables()
-    .Build();
-
-var client = new DiscordSocketClient();
-
-await RunAsync();
-
-async Task RunAsync()
+internal class Program
 {
-    client.Log += Log;
+    private IConfigurationRoot _config;
+    private DiscordSocketClient _client;
 
-    await client.LoginAsync(TokenType.Bot, config.GetRequiredSection("AppConfig:Token").Value);
-    await client.StartAsync();
-    var channel = (IMessageChannel)await client.GetChannelAsync(ulong.Parse(config.GetRequiredSection("DiscordChannels:China").Value));
+    private AppSettings _appSettings = new AppSettings();
 
-    var timer = new Timer(async callback =>
+    private static Task Main(string[] args) => new Program().RunAsync();
+
+    public async Task RunAsync()
     {
-        await DeleteMessagesAsync(await channel.GetMessagesAsync(int.MaxValue).ToArrayAsync());
-    }, null, TimeSpan.Zero, TimeSpan.FromHours(int.Parse(config.GetSection("AppConfig:RemovalFrequency").Value)));
+        _config = new ConfigurationBuilder()
+            .AddJsonFile("appsettings.json")
+            .AddJsonFile("defaultchannelsettings.json")
+            .AddEnvironmentVariables()
+            .Build();
+        _config.GetSection("AppSettings").Bind(_appSettings);
 
-    await Task.Delay(Timeout.Infinite);
-}
+        _client = new DiscordSocketClient();
 
-Task Log(LogMessage logMsg)
-{
-    Console.WriteLine(logMsg);
-    return Task.CompletedTask;
-}
+        _client.JoinedGuild += JoinedGuild;
+        _client.Log += Log;
 
-async Task DeleteMessagesAsync(IReadOnlyCollection<IMessage>[] messagePages)
-{
-    foreach (var messagePage in messagePages)
-    {
-        foreach (var message in messagePage)
-        {
-            if ((DateTime.Now - message.CreatedAt).Days > int.Parse(config.GetSection("AppConfig:MessageAgeToDelete").Value))
-            {
-                await message.DeleteAsync();
-            }
-        }
+        await _client.LoginAsync(TokenType.Bot, _appSettings.Token);
+        await _client.StartAsync();
+
+        //var timer = new Timer(async callback =>
+        //{
+        //    await DeleteMessagesAsync(await channel.GetMessagesAsync(int.MaxValue).ToArrayAsync());
+        //}, null, TimeSpan.Zero, TimeSpan.FromHours(int.Parse(config.GetSection("AppConfig:RemovalFrequency").Value)));
+
+        await Task.Delay(Timeout.Infinite);
     }
+
+    private Task JoinedGuild(SocketGuild arg)
+    {
+        new JsonConfigManager(_config, _appSettings, arg.Id).CreateConfigFile(arg.Name, arg.Channels);
+        return Task.CompletedTask;
+    }
+
+    private Task Log(LogMessage logMsg)
+    {
+        Console.WriteLine(logMsg);
+        return Task.CompletedTask;
+    }
+
+    //private async Task DeleteMessagesAsync(IReadOnlyCollection<IMessage>[] messagePages)
+    //{
+    //    foreach (var messagePage in messagePages)
+    //    {
+    //        foreach (var message in messagePage)
+    //        {
+    //            if ((DateTime.Now - message.CreatedAt).Days > int.Parse(_config.GetSection("AppConfig:MessageAgeToDelete").Value))
+    //            {
+    //                await message.DeleteAsync();
+    //            }
+    //        }
+    //    }
+    //}
 }

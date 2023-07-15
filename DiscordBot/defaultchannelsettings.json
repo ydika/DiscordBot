@@ -1,0 +1,29 @@
+{
+  "DefaultTextChannelSettings": {
+    "IsDeleteMessages": "false",
+    "MessageAgeToDelete": "3",
+    "RemovalFrequency": "1"
+  },
+  "DefaultDMChannelSettings": {
+  },
+  "DefaultVoiceChannelSettings": {
+  },
+  "DefaultGroupChannelSettings": {
+  },
+  "DefaultCategoryChannelSettings": {
+  },
+  "DefaultNewsChannelSettings": {
+  },
+  "DefaultStoreChannelSettings": {
+  },
+  "DefaultNewsThreadChannelSettings": {
+  },
+  "DefaultPublicThreadChannelSettings": {
+  },
+  "DefaultPrivateThreadChannelSettings": {
+  },
+  "DefaultStageChannelSettings": {
+  },
+  "DefaultForumChannelSettings": {
+  }
+}
