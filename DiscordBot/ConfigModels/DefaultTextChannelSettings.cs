@@ -1,0 +1,15 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace DiscordBot.ConfigModels
+{
+    public class DefaultTextChannelSettings
+    {
+        public bool IsDeleteMessages { get; set; }
+        public int MessageAgeToDelete { get; set; }
+        public int RemovalFrequency { get; set; }
+    }
+}
