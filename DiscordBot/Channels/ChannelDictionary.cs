@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace DiscordBot.Channels
 {
-    public class ChannelDictionary
+    public static class ChannelDictionary
     {
         public static readonly Dictionary<ChannelType, Type> ChannelTypeMap = new Dictionary<ChannelType, Type>
         {

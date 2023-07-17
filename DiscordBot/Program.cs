@@ -1,11 +1,9 @@
 ﻿using Discord;
 using Discord.WebSocket;
 using DiscordBot.Channels;
-using DiscordBot.Config;
+using DiscordBot.ConfigManagers;
 using DiscordBot.ConfigModels;
 using Microsoft.Extensions.Configuration;
-using System.Text.Json;
-using System.Threading.Channels;
 
 internal class Program
 {
