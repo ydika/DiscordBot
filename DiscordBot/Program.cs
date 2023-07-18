@@ -1,16 +1,24 @@
 ﻿using Discord;
+using Discord.Commands;
 using Discord.WebSocket;
 using DiscordBot.Channels;
 using DiscordBot.ConfigManagers;
 using DiscordBot.ConfigModels;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using System;
+using System.Reflection;
+using System.Threading.Channels;
+using System.Windows.Input;
 
 internal class Program
 {
     private IConfigurationRoot _config;
-    private DiscordSocketClient _client;
+    private AppSettings _appSettings;
+    private JsonConfigManager _configManager;
 
-    private AppSettings _appSettings = new AppSettings();
+    private DiscordSocketClient _client;
+    private Dictionary<ulong, SocketGuild> _guilds;
 
     private static Task Main(string[] args) => new Program().RunAsync();
 
@@ -21,27 +29,47 @@ internal class Program
             .AddJsonFile("defaultchannelsettings.json")
             .AddEnvironmentVariables()
             .Build();
+        _appSettings = new AppSettings();
         _config.GetSection("AppSettings").Bind(_appSettings);
+        _configManager = new JsonConfigManager(_config, _appSettings);
 
         _client = new DiscordSocketClient();
+        _guilds = new Dictionary<ulong, SocketGuild>();
 
+        _client.ChannelCreated += ChannelCreated;
+        _client.ChannelDestroyed += ChannelDestroyed;
         _client.JoinedGuild += JoinedGuild;
+        _client.LeftGuild += LeftGuild;
         _client.Log += Log;
 
         await _client.LoginAsync(TokenType.Bot, _appSettings.Token);
         await _client.StartAsync();
 
-        //var timer = new Timer(async callback =>
-        //{
-        //    await DeleteMessagesAsync(await channel.GetMessagesAsync(int.MaxValue).ToArrayAsync());
-        //}, null, TimeSpan.Zero, TimeSpan.FromHours(int.Parse(config.GetSection("AppConfig:RemovalFrequency").Value)));
-
         await Task.Delay(Timeout.Infinite);
     }
 
-    private Task JoinedGuild(SocketGuild arg)
+    private Task ChannelCreated(SocketChannel channel)
     {
-        new JsonConfigManager(_config, _appSettings, arg.Id).CreateConfigFile(arg.Name, arg.Channels);
+        _configManager.AddChannelToConfigFile(channel);
+        return Task.CompletedTask;
+    }
+
+    private Task ChannelDestroyed(SocketChannel channel)
+    {
+        _configManager.DeleteChannelFromConfigFile(channel);
+        return Task.CompletedTask;
+    }
+
+    private Task JoinedGuild(SocketGuild guild)
+    {
+        _guilds.Add(guild.Id, guild);
+        _configManager.CreateConfigFile(guild.Id, guild.Name, guild.Channels);
+        return Task.CompletedTask;
+    }
+
+    private Task LeftGuild(SocketGuild guild)
+    {
+        _guilds.Remove(guild.Id);
         return Task.CompletedTask;
     }
 
@@ -50,18 +78,4 @@ internal class Program
         Console.WriteLine(logMsg);
         return Task.CompletedTask;
     }
-
-    //private async Task DeleteMessagesAsync(IReadOnlyCollection<IMessage>[] messagePages)
-    //{
-    //    foreach (var messagePage in messagePages)
-    //    {
-    //        foreach (var message in messagePage)
-    //        {
-    //            if ((DateTime.Now - message.CreatedAt).Days > int.Parse(_config.GetSection("AppConfig:MessageAgeToDelete").Value))
-    //            {
-    //                await message.DeleteAsync();
-    //            }
-    //        }
-    //    }
-    //}
 }

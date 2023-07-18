@@ -37,7 +37,7 @@ namespace DiscordBot.Channels
             return discordChannels;
         }
 
-        private DiscordChannel CreateChannel(Type channelClass, SocketGuildChannel channel)
+        public DiscordChannel CreateChannel(Type channelClass, SocketGuildChannel channel)
         {
             var discordChannel = (DiscordChannel)Activator.CreateInstance(channelClass);
             discordChannel.Id = channel.Id;
