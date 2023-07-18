@@ -1,4 +1,5 @@
-﻿using Discord.WebSocket;
+﻿using Discord;
+using Discord.WebSocket;
 using DiscordBot.Channels;
 using DiscordBot.ConfigModels;
 using Microsoft.Extensions.Configuration;
@@ -7,23 +8,20 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading.Channels;
 
 namespace DiscordBot.ConfigManagers
 {
     public class JsonConfigManager
     {
-        private IConfigurationRoot _config;
+        private AppSettings _appSettings;
         private ChannelFactory _channelFactory;
-        private string _configPath;
-        private ulong _serverId;
         private JsonSerializerSettings _jsonOptions;
 
-        public JsonConfigManager(IConfigurationRoot config, AppSettings appSettings, ulong serverId)
+        public JsonConfigManager(IConfigurationRoot config, AppSettings appSettings)
         {
-            _config = config;
+            _appSettings = appSettings;
             _channelFactory = new ChannelFactory(config);
-            _configPath = $".{appSettings.ServerConfigsPath}\\{serverId}.json";
-            _serverId = serverId;
             _jsonOptions = new JsonSerializerSettings
             {
                 Formatting = Formatting.Indented,
@@ -31,62 +29,98 @@ namespace DiscordBot.ConfigManagers
             };
         }
 
-        public void CreateConfigFile(string serverName, IEnumerable<SocketGuildChannel> channels)
+        public void CreateConfigFile(ulong serverId, string serverName, IEnumerable<SocketGuildChannel> channels)
         {
-            if (!File.Exists(_configPath))
+            var configPath = GetConfigPathString(serverId);
+            if (!File.Exists(configPath))
             {
                 var serverConfig = new Server
                 {
-                    ServerId = _serverId,
+                    ServerId = serverId,
                     Name = serverName,
                     DiscordChannels = _channelFactory.CreateChannels(channels).OrderBy(x => x.Type).ToList()
                 };
 
-                File.WriteAllText(_configPath, JsonConvert.SerializeObject(serverConfig, _jsonOptions));
+                File.WriteAllText(configPath, JsonConvert.SerializeObject(serverConfig, _jsonOptions));
             }
         }
 
-        public Server ReadConfigFile()
+        public Server ReadConfigFile(ulong serverId)
         {
-            FileExistsChecking();
+            var configPath = GetConfigPathString(serverId);
+            FileExistsChecking(configPath);
 
-            return JsonConvert.DeserializeObject<Server>(File.ReadAllText(_configPath), _jsonOptions);
+            return JsonConvert.DeserializeObject<Server>(File.ReadAllText(configPath), _jsonOptions);
         }
 
         public void UpdateConfigFile(Server serverConfig)
         {
-            FileExistsChecking();
+            var configPath = GetConfigPathString(serverConfig.ServerId);
+            FileExistsChecking(configPath);
 
-            File.WriteAllText(_configPath, JsonConvert.SerializeObject(serverConfig, _jsonOptions));
+            File.WriteAllText(configPath, JsonConvert.SerializeObject(serverConfig, _jsonOptions));
         }
 
-        public void DeleteConfigFile()
+        public void DeleteConfigFile(ulong serverId)
         {
-            FileExistsChecking();
+            var configPath = GetConfigPathString(serverId);
+            FileExistsChecking(configPath);
 
-            File.Delete(_configPath);
+            File.Delete(configPath);
         }
 
-        public void AddChannelToConfigFile(DiscordChannel discordChannel)
+        public void AddChannelToConfigFile(SocketChannel socketChannel)
         {
-            if (discordChannel is null)
+            if (socketChannel is null)
             {
                 return;
             }
 
-            discordChannel.SetDefaultValues(_config);
+            var guildChannel = (SocketGuildChannel)socketChannel;
+            var channelType = (ChannelType)socketChannel.GetChannelType();
+            if (ChannelDictionary.ChannelTypeMap.TryGetValue(channelType, out var channelClass))
+            {
+                var discordChannel = _channelFactory.CreateChannel(channelClass, guildChannel);
 
-            var serverConfig = ReadConfigFile();
-            serverConfig.DiscordChannels.Add(discordChannel);
-            serverConfig.DiscordChannels = serverConfig.DiscordChannels.OrderBy(x => x.Type).ToList();
-            UpdateConfigFile(serverConfig);
+                var serverConfig = ReadConfigFile(guildChannel.Guild.Id);
+                serverConfig.DiscordChannels.Add(discordChannel);
+                serverConfig.DiscordChannels = serverConfig.DiscordChannels.OrderBy(x => x.Type).ToList();
+                UpdateConfigFile(serverConfig);
+            }
+            else
+            {
+                throw new NotSupportedException($"Channel type \"{channelType}\" not supported.");
+            }
         }
 
-        private void FileExistsChecking()
+        public void DeleteChannelFromConfigFile(SocketChannel socketChannel)
         {
-            if (!File.Exists(_configPath))
+            if (socketChannel is null)
             {
-                throw new FileNotFoundException($"Config file not found. Path: {_configPath}");
+                return;
+            }
+
+            var guildChannel = (SocketGuildChannel)socketChannel;
+            var serverConfig = ReadConfigFile(guildChannel.Guild.Id);
+            var foundChannel = serverConfig.DiscordChannels.FirstOrDefault(x => x.Id == socketChannel.Id);
+            if (foundChannel is not null)
+            {
+                serverConfig.DiscordChannels.Remove(foundChannel);
+                serverConfig.DiscordChannels = serverConfig.DiscordChannels.OrderBy(x => x.Type).ToList();
+                UpdateConfigFile(serverConfig);
+            }
+        }
+
+        private string GetConfigPathString(ulong serverId)
+        {
+            return $".{_appSettings.ServerConfigsPath}\\{serverId}.json";
+        }
+
+        private void FileExistsChecking(string configPath)
+        {
+            if (!File.Exists(configPath))
+            {
+                throw new FileNotFoundException($"Config file not found. Path: {configPath}");
             }
         }
     }
