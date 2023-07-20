@@ -1,6 +1,7 @@
 ﻿using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
+using DiscordBot.BotFunctionality.MessageManagement;
 using DiscordBot.Channels;
 using DiscordBot.ConfigManagers;
 using DiscordBot.ConfigModels;
@@ -18,7 +19,7 @@ internal class Program
     private JsonConfigManager _configManager;
 
     private DiscordSocketClient _client;
-    private Dictionary<ulong, SocketGuild> _guilds;
+    private MessagesManager _messageManager;
 
     private static Task Main(string[] args) => new Program().RunAsync();
 
@@ -34,13 +35,12 @@ internal class Program
         _configManager = new JsonConfigManager(_config, _appSettings);
 
         _client = new DiscordSocketClient();
-        _guilds = new Dictionary<ulong, SocketGuild>();
-
         _client.ChannelCreated += ChannelCreated;
         _client.ChannelDestroyed += ChannelDestroyed;
         _client.JoinedGuild += JoinedGuild;
         _client.LeftGuild += LeftGuild;
         _client.Log += Log;
+        _client.Ready += Ready;
 
         await _client.LoginAsync(TokenType.Bot, _appSettings.Token);
         await _client.StartAsync();
@@ -62,14 +62,13 @@ internal class Program
 
     private Task JoinedGuild(SocketGuild guild)
     {
-        _guilds.Add(guild.Id, guild);
         _configManager.CreateConfigFile(guild.Id, guild.Name, guild.Channels);
         return Task.CompletedTask;
     }
 
     private Task LeftGuild(SocketGuild guild)
     {
-        _guilds.Remove(guild.Id);
+        _configManager.GuildConfigs.Remove(guild);
         return Task.CompletedTask;
     }
 
@@ -77,5 +76,12 @@ internal class Program
     {
         Console.WriteLine(logMsg);
         return Task.CompletedTask;
+    }
+
+    private async Task Ready()
+    {
+        _configManager.SetConnectedGuildConfigs(_client.Guilds);
+        _messageManager = new MessagesManager(_configManager);
+        await _messageManager.DeleteMessagesFromTextChannelsAsync();
     }
 }

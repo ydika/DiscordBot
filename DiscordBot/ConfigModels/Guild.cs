@@ -8,9 +8,9 @@ using DiscordBot.Channels;
 
 namespace DiscordBot.ConfigModels
 {
-    public class Server
+    public class Guild
     {
-        public ulong ServerId { get; set; }
+        public ulong GuildId { get; set; }
         public string Name { get; set; }
         public List<DiscordChannel> DiscordChannels { get; set; }
     }
