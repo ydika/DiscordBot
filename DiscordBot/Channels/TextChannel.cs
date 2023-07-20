@@ -15,7 +15,6 @@ namespace DiscordBot.Channels
 
         public bool IsDeleteMessages { get; set; }
         public int MessageAgeToDelete { get; set; }
-        public int RemovalFrequency { get; set; }
 
         public override void SetDefaultValues(IConfigurationRoot config)
         {
@@ -23,7 +22,6 @@ namespace DiscordBot.Channels
 
             IsDeleteMessages = _defaultTextChannelSettings.IsDeleteMessages;
             MessageAgeToDelete = _defaultTextChannelSettings.MessageAgeToDelete;
-            RemovalFrequency = _defaultTextChannelSettings.RemovalFrequency;
         }
     }
 }

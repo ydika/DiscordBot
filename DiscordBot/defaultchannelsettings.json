@@ -1,8 +1,7 @@
 {
   "DefaultTextChannelSettings": {
     "IsDeleteMessages": "false",
-    "MessageAgeToDelete": "3",
-    "RemovalFrequency": "1"
+    "MessageAgeToDelete": "4320"
   },
   "DefaultDMChannelSettings": {
   },

@@ -18,6 +18,8 @@ namespace DiscordBot.ConfigManagers
         private ChannelFactory _channelFactory;
         private JsonSerializerSettings _jsonOptions;
 
+        public Dictionary<SocketGuild, Guild> GuildConfigs { get; set; }
+
         public JsonConfigManager(IConfigurationRoot config, AppSettings appSettings)
         {
             _appSettings = appSettings;
@@ -27,43 +29,53 @@ namespace DiscordBot.ConfigManagers
                 Formatting = Formatting.Indented,
                 TypeNameHandling = TypeNameHandling.Auto
             };
+            GuildConfigs = new Dictionary<SocketGuild, Guild>();
         }
 
-        public void CreateConfigFile(ulong serverId, string serverName, IEnumerable<SocketGuildChannel> channels)
+        public void SetConnectedGuildConfigs(IEnumerable<SocketGuild> guilds)
         {
-            var configPath = GetConfigPathString(serverId);
-            if (!File.Exists(configPath))
+            foreach (var guild in guilds)
             {
-                var serverConfig = new Server
-                {
-                    ServerId = serverId,
-                    Name = serverName,
-                    DiscordChannels = _channelFactory.CreateChannels(channels).OrderBy(x => x.Type).ToList()
-                };
-
-                File.WriteAllText(configPath, JsonConvert.SerializeObject(serverConfig, _jsonOptions));
+                GuildConfigs.Add(guild, ReadConfigFile(guild.Id));
             }
         }
 
-        public Server ReadConfigFile(ulong serverId)
+        public void CreateConfigFile(ulong guildId, string guildName, IEnumerable<SocketGuildChannel> channels)
         {
-            var configPath = GetConfigPathString(serverId);
-            FileExistsChecking(configPath);
+            var configPath = GetConfigPathString(guildId);
+            if (!File.Exists(configPath))
+            {
+                var guildConfig = new Guild
+                {
+                    GuildId = guildId,
+                    Name = guildName,
+                    DiscordChannels = _channelFactory.CreateChannels(channels).OrderBy(x => x.Type).ToList()
+                };
+                GuildConfigs.Add(channels.FirstOrDefault().Guild, guildConfig);
 
-            return JsonConvert.DeserializeObject<Server>(File.ReadAllText(configPath), _jsonOptions);
+                File.WriteAllText(configPath, JsonConvert.SerializeObject(guildConfig, _jsonOptions));
+            }
         }
 
-        public void UpdateConfigFile(Server serverConfig)
+        public Guild ReadConfigFile(ulong guildId)
         {
-            var configPath = GetConfigPathString(serverConfig.ServerId);
+            var configPath = GetConfigPathString(guildId);
             FileExistsChecking(configPath);
 
-            File.WriteAllText(configPath, JsonConvert.SerializeObject(serverConfig, _jsonOptions));
+            return JsonConvert.DeserializeObject<Guild>(File.ReadAllText(configPath), _jsonOptions);
         }
 
-        public void DeleteConfigFile(ulong serverId)
+        public void UpdateConfigFile(Guild guildConfig)
         {
-            var configPath = GetConfigPathString(serverId);
+            var configPath = GetConfigPathString(guildConfig.GuildId);
+            FileExistsChecking(configPath);
+
+            File.WriteAllText(configPath, JsonConvert.SerializeObject(guildConfig, _jsonOptions));
+        }
+
+        public void DeleteConfigFile(ulong guildId)
+        {
+            var configPath = GetConfigPathString(guildId);
             FileExistsChecking(configPath);
 
             File.Delete(configPath);
@@ -82,10 +94,13 @@ namespace DiscordBot.ConfigManagers
             {
                 var discordChannel = _channelFactory.CreateChannel(channelClass, guildChannel);
 
-                var serverConfig = ReadConfigFile(guildChannel.Guild.Id);
-                serverConfig.DiscordChannels.Add(discordChannel);
-                serverConfig.DiscordChannels = serverConfig.DiscordChannels.OrderBy(x => x.Type).ToList();
-                UpdateConfigFile(serverConfig);
+                var guildConfig = ReadConfigFile(guildChannel.Guild.Id);
+                guildConfig.DiscordChannels.Add(discordChannel);
+                guildConfig.DiscordChannels = guildConfig.DiscordChannels.OrderBy(x => x.Type).ToList();
+                UpdateConfigFile(guildConfig);
+
+                GuildConfigs.Remove(guildChannel.Guild);
+                GuildConfigs.Add(guildChannel.Guild, guildConfig);
             }
             else
             {
@@ -101,19 +116,21 @@ namespace DiscordBot.ConfigManagers
             }
 
             var guildChannel = (SocketGuildChannel)socketChannel;
-            var serverConfig = ReadConfigFile(guildChannel.Guild.Id);
-            var foundChannel = serverConfig.DiscordChannels.FirstOrDefault(x => x.Id == socketChannel.Id);
+            var guildConfig = ReadConfigFile(guildChannel.Guild.Id);
+            var foundChannel = guildConfig.DiscordChannels.FirstOrDefault(x => x.Id == socketChannel.Id);
             if (foundChannel is not null)
             {
-                serverConfig.DiscordChannels.Remove(foundChannel);
-                serverConfig.DiscordChannels = serverConfig.DiscordChannels.OrderBy(x => x.Type).ToList();
-                UpdateConfigFile(serverConfig);
+                guildConfig.DiscordChannels.Remove(foundChannel);
+                guildConfig.DiscordChannels = guildConfig.DiscordChannels.OrderBy(x => x.Type).ToList();
+                UpdateConfigFile(guildConfig);
+
+                GuildConfigs.Remove(guildChannel.Guild);
             }
         }
 
-        private string GetConfigPathString(ulong serverId)
+        private string GetConfigPathString(ulong guildId)
         {
-            return $".{_appSettings.ServerConfigsPath}\\{serverId}.json";
+            return $".{_appSettings.GuildConfigsPath}\\{guildId}.json";
         }
 
         private void FileExistsChecking(string configPath)
