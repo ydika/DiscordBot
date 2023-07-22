@@ -8,9 +8,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Channels;
 
-namespace DiscordBot.ConfigManagers
+namespace DiscordBot.Services
 {
     public class JsonConfigManager
     {
@@ -32,15 +31,15 @@ namespace DiscordBot.ConfigManagers
             GuildConfigs = new Dictionary<SocketGuild, Guild>();
         }
 
-        public void SetConnectedGuildConfigs(IEnumerable<SocketGuild> guilds)
+        public async Task SetConnectedGuildConfigs(IEnumerable<SocketGuild> guilds)
         {
             foreach (var guild in guilds)
             {
-                GuildConfigs.Add(guild, ReadConfigFile(guild.Id));
+                GuildConfigs.Add(guild, await ReadConfigFile(guild.Id));
             }
         }
 
-        public void CreateConfigFile(ulong guildId, string guildName, IEnumerable<SocketGuildChannel> channels)
+        public async Task CreateConfigFile(ulong guildId, string guildName, IEnumerable<SocketGuildChannel> channels)
         {
             var configPath = GetConfigPathString(guildId);
             if (!File.Exists(configPath))
@@ -53,24 +52,28 @@ namespace DiscordBot.ConfigManagers
                 };
                 GuildConfigs.Add(channels.FirstOrDefault().Guild, guildConfig);
 
-                File.WriteAllText(configPath, JsonConvert.SerializeObject(guildConfig, _jsonOptions));
+                await File.WriteAllTextAsync(configPath, JsonConvert.SerializeObject(guildConfig, _jsonOptions));
             }
         }
 
-        public Guild ReadConfigFile(ulong guildId)
+        public async Task<Guild> ReadConfigFile(ulong guildId)
         {
             var configPath = GetConfigPathString(guildId);
             FileExistsChecking(configPath);
 
-            return JsonConvert.DeserializeObject<Guild>(File.ReadAllText(configPath), _jsonOptions);
+            return JsonConvert.DeserializeObject<Guild>(await File.ReadAllTextAsync(configPath), _jsonOptions);
         }
 
-        public void UpdateConfigFile(Guild guildConfig)
+        public async Task UpdateConfigFile(Guild guildConfig)
         {
             var configPath = GetConfigPathString(guildConfig.GuildId);
             FileExistsChecking(configPath);
 
-            File.WriteAllText(configPath, JsonConvert.SerializeObject(guildConfig, _jsonOptions));
+            var oldGuildConfig = GuildConfigs.FirstOrDefault(x => x.Value.GuildId == guildConfig.GuildId);
+            GuildConfigs.Remove(oldGuildConfig.Key);
+            GuildConfigs.Add(oldGuildConfig.Key, guildConfig);
+
+            await File.WriteAllTextAsync(configPath, JsonConvert.SerializeObject(guildConfig, _jsonOptions));
         }
 
         public void DeleteConfigFile(ulong guildId)
@@ -81,7 +84,7 @@ namespace DiscordBot.ConfigManagers
             File.Delete(configPath);
         }
 
-        public void AddChannelToConfigFile(SocketChannel socketChannel)
+        public async Task AddChannelToConfigFile(SocketChannel socketChannel)
         {
             if (socketChannel is null)
             {
@@ -94,10 +97,10 @@ namespace DiscordBot.ConfigManagers
             {
                 var discordChannel = _channelFactory.CreateChannel(channelClass, guildChannel);
 
-                var guildConfig = ReadConfigFile(guildChannel.Guild.Id);
+                var guildConfig = await ReadConfigFile(guildChannel.Guild.Id);
                 guildConfig.DiscordChannels.Add(discordChannel);
                 guildConfig.DiscordChannels = guildConfig.DiscordChannels.OrderBy(x => x.Type).ToList();
-                UpdateConfigFile(guildConfig);
+                await UpdateConfigFile(guildConfig);
 
                 GuildConfigs.Remove(guildChannel.Guild);
                 GuildConfigs.Add(guildChannel.Guild, guildConfig);
@@ -108,7 +111,7 @@ namespace DiscordBot.ConfigManagers
             }
         }
 
-        public void DeleteChannelFromConfigFile(SocketChannel socketChannel)
+        public async Task DeleteChannelFromConfigFile(SocketChannel socketChannel)
         {
             if (socketChannel is null)
             {
@@ -116,13 +119,13 @@ namespace DiscordBot.ConfigManagers
             }
 
             var guildChannel = (SocketGuildChannel)socketChannel;
-            var guildConfig = ReadConfigFile(guildChannel.Guild.Id);
+            var guildConfig = await ReadConfigFile(guildChannel.Guild.Id);
             var foundChannel = guildConfig.DiscordChannels.FirstOrDefault(x => x.Id == socketChannel.Id);
             if (foundChannel is not null)
             {
                 guildConfig.DiscordChannels.Remove(foundChannel);
                 guildConfig.DiscordChannels = guildConfig.DiscordChannels.OrderBy(x => x.Type).ToList();
-                UpdateConfigFile(guildConfig);
+                await UpdateConfigFile(guildConfig);
 
                 GuildConfigs.Remove(guildChannel.Guild);
             }
