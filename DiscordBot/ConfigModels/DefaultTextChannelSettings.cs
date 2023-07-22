@@ -10,6 +10,5 @@ namespace DiscordBot.ConfigModels
     {
         public bool IsDeleteMessages { get; set; }
         public int MessageAgeToDelete { get; set; }
-        public int RemovalFrequency { get; set; }
     }
 }
