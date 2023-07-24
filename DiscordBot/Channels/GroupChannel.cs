@@ -9,13 +9,14 @@ using System.Threading.Tasks;
 
 namespace DiscordBot.Channels
 {
-    public class GroupChannel : DiscordChannel
+    public class GroupChannel : TextChannel
     {
         private DefaultGroupChannelSettings _defaultGroupChannelSettings = new DefaultGroupChannelSettings();
 
         public override void SetDefaultValues(IConfigurationRoot config)
         {
             config.GetSection("DefaultGroupChannelSettings").Bind(_defaultGroupChannelSettings);
+            base.SetDefaultValues(config);
         }
     }
 }

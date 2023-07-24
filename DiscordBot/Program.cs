@@ -58,17 +58,17 @@ internal class Program
 
     private async Task ChannelCreated(SocketChannel channel)
     {
-        await _configManager.AddChannelToConfigFile(channel);
+        await _configManager.AddChannelToConfigFileAsync((SocketGuildChannel)channel);
     }
 
     private async Task ChannelDestroyed(SocketChannel channel)
     {
-        await _configManager.DeleteChannelFromConfigFile(channel);
+        await _configManager.DeleteChannelFromConfigFileAsync((SocketGuildChannel)channel);
     }
 
     private async Task JoinedGuild(SocketGuild guild)
     {
-        await _configManager.CreateConfigFile(guild.Id, guild.Name, guild.Channels);
+        await _configManager.CreateConfigFileAsync(guild);
     }
 
     private Task LeftGuild(SocketGuild guild)
@@ -93,7 +93,7 @@ internal class Program
         var argPos = 0;
         var userMessage = (SocketUserMessage)message;
         var context = new SocketCommandContext(_client, userMessage);
-        if (userMessage.HasStringPrefix("!", ref argPos))
+        if (userMessage.HasStringPrefix(_appSettings.CommandPrefix, ref argPos))
         {
             var result = await _commandService.ExecuteAsync(context, argPos, _services);
             if (result is not null && !result.IsSuccess)
@@ -105,6 +105,6 @@ internal class Program
 
     private async Task Ready()
     {
-        await _configManager.SetConnectedGuildConfigs(_client.Guilds);
+        await _configManager.SetConnectedGuildConfigsAsync(_client.Guilds);
     }
 }

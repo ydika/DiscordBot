@@ -9,13 +9,14 @@ using System.Threading.Tasks;
 
 namespace DiscordBot.Channels
 {
-    public class NewsChannel : DiscordChannel
+    public class NewsChannel : TextChannel
     {
         private DefaultNewsChannelSettings _defaultNewsChannelSettings = new DefaultNewsChannelSettings();
 
         public override void SetDefaultValues(IConfigurationRoot config)
         {
             config.GetSection("DefaultNewsChannelSettings").Bind(_defaultNewsChannelSettings);
+            base.SetDefaultValues(config);
         }
     }
 }

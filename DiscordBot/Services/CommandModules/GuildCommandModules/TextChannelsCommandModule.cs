@@ -1,24 +1,59 @@
 ﻿using Discord;
 using Discord.Commands;
-using Discord.Rest;
-using DiscordBot.Channels;
+using Discord.WebSocket;
+using DiscordBot.Services.CommandModules.GuildCommandModules;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace DiscordBot.Services.BotFunctionality.CommandModules
 {
-    [RequireContext(ContextType.Guild)]
-    [RequireUserPermission(ChannelPermission.ManageMessages)]
-    public class TextChannelsCommandModule : ModuleBase
+    public class TextChannelsCommandModule : GeneralGuildCommandModule
     {
         private JsonConfigManager _jsonConfigManager;
 
-        public TextChannelsCommandModule(JsonConfigManager jsonConfigManager)
+        public TextChannelsCommandModule(JsonConfigManager jsonConfigManager) : base(jsonConfigManager)
         {
             _jsonConfigManager = jsonConfigManager;
+        }
+
+        [Command("get_channel_settings")]
+        [Summary("returns channel settings")]
+        public async Task GetChannelSettingsCommand()
+        {
+            var channelConfig = await GetTextChannelConfigAsync((SocketGuildChannel)Context.Channel);
+            var properties = new StringBuilder(256).Append($"> # {channelConfig.Name} Channel Settings\n");
+            foreach (var property in channelConfig.GetType().GetProperties())
+            {
+                if (property.DeclaringType == channelConfig.GetType())
+                {
+                    properties.Append($"> {property.Name} : {property.GetValue(channelConfig)}\n");
+                }
+            }
+
+            await ReplyAsync(properties.ToString());
+        }
+
+        [Command("get_allchannel_settings")]
+        [Summary("returns all channel settings")]
+        public async Task GetAllChannelSettingsCommand()
+        {
+            var channelConfigs = await GetTextChannelConfigsAsync((SocketGuildChannel)Context.Channel);
+            var properties = new StringBuilder(256);
+            foreach (var channelConfig in channelConfigs)
+            {
+                properties.Append($"> # {channelConfig.Name} Channel Settings\n");
+                foreach (var property in channelConfig.GetType().GetProperties())
+                {
+                    if (property.DeclaringType == channelConfig.GetType())
+                    {
+                        properties.Append($"> {property.Name} : {property.GetValue(channelConfig)}\n");
+                    }
+                } 
+            }
+
+            await ReplyAsync(properties.ToString());
         }
 
         [Command("delete_all_messages")]
@@ -28,14 +63,13 @@ namespace DiscordBot.Services.BotFunctionality.CommandModules
             var textChannel = (ITextChannel)Context.Channel;
             var messages = await textChannel.GetMessagesAsync().FlattenAsync();
             await textChannel.DeleteMessagesAsync(messages);
-            await ReplyAsync($"Broom for channel **{Context.Channel.Name}** turned on!");
         }
 
         [Command("turn_on_broom")]
         [Summary("starts deleting messages on the channel periodically")]
         public async Task TurnOnBroomCommand()
         {
-            await SetIsDeleteMessagesValue(Context.Guild.Id, Context.Channel.Id, true);
+            await SetTextChannelSettings((SocketGuildChannel)Context.Channel, true, -1);
             await ReplyAsync($"Broom for channel **{Context.Channel.Name}** turned on!");
         }
 
@@ -43,26 +77,38 @@ namespace DiscordBot.Services.BotFunctionality.CommandModules
         [Summary("stops deleting messages on the channel periodically")]
         public async Task TurnOfBroomCommand()
         {
-            await SetIsDeleteMessagesValue(Context.Guild.Id, Context.Channel.Id, false);
+            await SetTextChannelSettings((SocketGuildChannel)Context.Channel, false, -1);
             await ReplyAsync($"Broom for channel **{Context.Channel.Name}** turned off!");
         }
 
-        private async Task SetIsDeleteMessagesValue(ulong guildId, ulong channelId, bool value)
+        [Command("set_message_age")]
+        [Summary("sets the age of the message in minutes after which it will be deleted (cannot be less than or equal to zero)")]
+        public async Task SetMessageAgeCommand(int minutes)
         {
-            var guildConfig = _jsonConfigManager.GuildConfigs.FirstOrDefault(x => x.Value.GuildId == guildId).Value;
-            if (guildConfig is null)
+            if (minutes <= 0)
             {
+                await ReplyAsync($"Message age of **{minutes}** minutes cannot be less than or equal to zero!");
                 return;
             }
 
-            var channelConfig = (TextChannel)guildConfig.DiscordChannels.FirstOrDefault(x => x.Id == channelId);
-            if (channelConfig is null)
-            {
-                return;
-            }
-            channelConfig.IsDeleteMessages = value;
+            await SetTextChannelSettings((SocketGuildChannel)Context.Channel, false, minutes);
+            await ReplyAsync($"Message age of **{minutes}** minutes for channel **{Context.Channel.Name}** is set!");
+        }
 
-            await _jsonConfigManager.UpdateConfigFile(guildConfig);
+        private async Task SetTextChannelSettings(SocketGuildChannel channel, bool isDeleteMessages, int messageAge)
+        {
+            var channelConfig = await GetTextChannelConfigAsync(channel);
+
+            if (messageAge > 0)
+            {
+                channelConfig.MessageAgeToDelete = messageAge;
+            }
+            else
+            {
+                channelConfig.IsDeleteMessages = isDeleteMessages;
+            }
+
+            await _jsonConfigManager.UpdateChannelInConfigFileAsync(channel, channelConfig);
         }
     }
 }
