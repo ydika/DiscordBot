@@ -31,32 +31,32 @@ namespace DiscordBot.Services
             GuildConfigs = new Dictionary<SocketGuild, Guild>();
         }
 
-        public async Task SetConnectedGuildConfigs(IEnumerable<SocketGuild> guilds)
+        public async Task SetConnectedGuildConfigsAsync(IEnumerable<SocketGuild> guilds)
         {
             foreach (var guild in guilds)
             {
-                GuildConfigs.Add(guild, await ReadConfigFile(guild.Id));
+                GuildConfigs.Add(guild, await ReadConfigFileAsync(guild.Id));
             }
         }
 
-        public async Task CreateConfigFile(ulong guildId, string guildName, IEnumerable<SocketGuildChannel> channels)
+        public async Task CreateConfigFileAsync(SocketGuild guild)
         {
-            var configPath = GetConfigPathString(guildId);
+            var configPath = GetConfigPathString(guild.Id);
             if (!File.Exists(configPath))
             {
                 var guildConfig = new Guild
                 {
-                    GuildId = guildId,
-                    Name = guildName,
-                    DiscordChannels = _channelFactory.CreateChannels(channels).OrderBy(x => x.Type).ToList()
+                    GuildId = guild.Id,
+                    Name = guild.Name,
+                    DiscordChannels = _channelFactory.CreateChannels(guild.Channels).OrderBy(x => x.Type).ToList()
                 };
-                GuildConfigs.Add(channels.FirstOrDefault().Guild, guildConfig);
+                GuildConfigs.Add(guild.Channels.FirstOrDefault().Guild, guildConfig);
 
                 await File.WriteAllTextAsync(configPath, JsonConvert.SerializeObject(guildConfig, _jsonOptions));
             }
         }
 
-        public async Task<Guild> ReadConfigFile(ulong guildId)
+        public async Task<Guild> ReadConfigFileAsync(ulong guildId)
         {
             var configPath = GetConfigPathString(guildId);
             FileExistsChecking(configPath);
@@ -64,7 +64,7 @@ namespace DiscordBot.Services
             return JsonConvert.DeserializeObject<Guild>(await File.ReadAllTextAsync(configPath), _jsonOptions);
         }
 
-        public async Task UpdateConfigFile(Guild guildConfig)
+        public async Task UpdateConfigFileAsync(Guild guildConfig)
         {
             var configPath = GetConfigPathString(guildConfig.GuildId);
             FileExistsChecking(configPath);
@@ -84,26 +84,25 @@ namespace DiscordBot.Services
             File.Delete(configPath);
         }
 
-        public async Task AddChannelToConfigFile(SocketChannel socketChannel)
+        public async Task AddChannelToConfigFileAsync(SocketGuildChannel channel)
         {
-            if (socketChannel is null)
+            if (channel is null)
             {
                 return;
             }
 
-            var guildChannel = (SocketGuildChannel)socketChannel;
-            var channelType = (ChannelType)socketChannel.GetChannelType();
+            var channelType = (ChannelType)channel.GetChannelType();
             if (ChannelDictionary.ChannelTypeMap.TryGetValue(channelType, out var channelClass))
             {
-                var discordChannel = _channelFactory.CreateChannel(channelClass, guildChannel);
+                if (!GuildConfigs.TryGetValue(channel.Guild, out var guildConfig))
+                {
+                    return;
+                }
 
-                var guildConfig = await ReadConfigFile(guildChannel.Guild.Id);
+                var discordChannel = _channelFactory.CreateChannel(channelClass, channel);
                 guildConfig.DiscordChannels.Add(discordChannel);
                 guildConfig.DiscordChannels = guildConfig.DiscordChannels.OrderBy(x => x.Type).ToList();
-                await UpdateConfigFile(guildConfig);
-
-                GuildConfigs.Remove(guildChannel.Guild);
-                GuildConfigs.Add(guildChannel.Guild, guildConfig);
+                await UpdateConfigFileAsync(guildConfig);
             }
             else
             {
@@ -111,23 +110,46 @@ namespace DiscordBot.Services
             }
         }
 
-        public async Task DeleteChannelFromConfigFile(SocketChannel socketChannel)
+        public async Task UpdateChannelInConfigFileAsync(SocketGuildChannel channel, DiscordChannel channelConfig)
         {
-            if (socketChannel is null)
+            if (channel is null || channel.Id != channelConfig.Id)
             {
                 return;
             }
 
-            var guildChannel = (SocketGuildChannel)socketChannel;
-            var guildConfig = await ReadConfigFile(guildChannel.Guild.Id);
-            var foundChannel = guildConfig.DiscordChannels.FirstOrDefault(x => x.Id == socketChannel.Id);
+            if (!GuildConfigs.TryGetValue(channel.Guild, out var guildConfig))
+            {
+                return;
+            }
+
+            var foundChannel = guildConfig.DiscordChannels.FirstOrDefault(x => x.Id == channel.Id);
+            if (foundChannel is not null)
+            {
+                guildConfig.DiscordChannels.Remove(foundChannel);
+                guildConfig.DiscordChannels.Add(channelConfig);
+                guildConfig.DiscordChannels = guildConfig.DiscordChannels.OrderBy(x => x.Type).ToList();
+                await UpdateConfigFileAsync(guildConfig);
+            }
+        }
+
+        public async Task DeleteChannelFromConfigFileAsync(SocketGuildChannel channel)
+        {
+            if (channel is null)
+            {
+                return;
+            }
+
+            if (!GuildConfigs.TryGetValue(channel.Guild, out var guildConfig))
+            {
+                return;
+            }
+
+            var foundChannel = guildConfig.DiscordChannels.FirstOrDefault(x => x.Id == channel.Id);
             if (foundChannel is not null)
             {
                 guildConfig.DiscordChannels.Remove(foundChannel);
                 guildConfig.DiscordChannels = guildConfig.DiscordChannels.OrderBy(x => x.Type).ToList();
-                await UpdateConfigFile(guildConfig);
-
-                GuildConfigs.Remove(guildChannel.Guild);
+                await UpdateConfigFileAsync(guildConfig);
             }
         }
 

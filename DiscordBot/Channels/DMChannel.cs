@@ -9,13 +9,14 @@ using System.Threading.Tasks;
 
 namespace DiscordBot.Channels
 {
-    public class DMChannel : DiscordChannel
+    public class DMChannel : TextChannel
     {
         private DefaultDMChannelSettings _defaultDMChannelSettings = new DefaultDMChannelSettings();
 
         public override void SetDefaultValues(IConfigurationRoot config)
         {
             config.GetSection("DefaultDMChannelSettings").Bind(_defaultDMChannelSettings);
+            base.SetDefaultValues(config);
         }
     }
 }

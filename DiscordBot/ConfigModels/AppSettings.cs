@@ -8,7 +8,8 @@ namespace DiscordBot.ConfigModels
 {
     public class AppSettings
     {
-        public string Token { get; set; }
+        public string CommandPrefix { get; set; }
         public string GuildConfigsPath { get; set; } 
+        public string Token { get; set; }
     }
 }

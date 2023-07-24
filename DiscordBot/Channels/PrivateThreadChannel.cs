@@ -9,13 +9,14 @@ using System.Threading.Tasks;
 
 namespace DiscordBot.Channels
 {
-    public class PrivateThreadChannel : DiscordChannel
+    public class PrivateThreadChannel : TextChannel
     {
         private DefaultPrivateThreadChannelSettings _defaultPrivateThreadChannelSettings = new DefaultPrivateThreadChannelSettings();
 
         public override void SetDefaultValues(IConfigurationRoot config)
         {
             config.GetSection("DefaultPrivateThreadChannelSettings").Bind(_defaultPrivateThreadChannelSettings);
+            base.SetDefaultValues(config);
         }
     }
 }
