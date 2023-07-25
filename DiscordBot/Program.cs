@@ -32,28 +32,44 @@ internal class Program
         _appSettings = _services.GetService<AppSettings>();
         _configManager = _services.GetService<JsonConfigManager>();
         _messagesManager = _services.GetService<MessagesManager>();
-        var timer = new Timer(async callback =>
-        {
-            await _messagesManager.DeleteMessagesFromTextChannelsAsync();
-        }, null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
+        _ = Task.Run(() => PeriodicallyDeleteMessages());
 
         var discordSocketConfig = new DiscordSocketConfig
         {
             GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.MessageContent
         };
         _client = new DiscordSocketClient(discordSocketConfig);
-        _client.ChannelCreated += ChannelCreated;
-        _client.ChannelDestroyed += ChannelDestroyed;
-        _client.JoinedGuild += JoinedGuild;
-        _client.LeftGuild += LeftGuild;
-        _client.Log += Log;
-        _client.MessageReceived += HandleCommandAsync;
-        _client.Ready += Ready;
+        RegisterEvents();
 
         await _client.LoginAsync(TokenType.Bot, _appSettings.Token);
         await _client.StartAsync();
 
         await Task.Delay(Timeout.Infinite);
+    }
+
+    public async Task PeriodicallyDeleteMessages(CancellationToken cancellationToken = default)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            await _messagesManager.DeleteMessagesFromTextChannelsAsync();
+            await Task.Delay(TimeSpan.FromMinutes(1), cancellationToken);
+        }
+    }
+
+    private void RegisterEvents()
+    {
+        _client.ChannelCreated += ChannelCreated;
+        _client.ChannelDestroyed += ChannelDestroyed;
+        _client.ChannelUpdated += ChannelUpdated;
+        _client.GuildUpdated += GuildUpdated;
+        _client.JoinedGuild += JoinedGuild;
+        _client.LeftGuild += LeftGuild;
+        _client.Log += Log;
+        _client.MessageReceived += HandleCommandAsync;
+        _client.Ready += Ready;
+        _client.ThreadCreated += ThreadCreated;
+        _client.ThreadDeleted += ThreadDeleted;
+        _client.ThreadUpdated += ThreadUpdated;
     }
 
     private async Task ChannelCreated(SocketChannel channel)
@@ -64,6 +80,25 @@ internal class Program
     private async Task ChannelDestroyed(SocketChannel channel)
     {
         await _configManager.DeleteChannelFromConfigFileAsync((SocketGuildChannel)channel);
+    }
+
+    private async Task ChannelUpdated(SocketChannel oldChannel, SocketChannel updatedChannel)
+    {
+        var guildChannel = (SocketGuildChannel)updatedChannel;
+        var channelConfig = _configManager.GuildConfigs[guildChannel.Guild].DiscordChannels.FirstOrDefault(x => x.Id == oldChannel.Id);
+        if (channelConfig is null)
+        {
+            return;
+        }
+
+        channelConfig.Name = guildChannel.Name;
+
+        await _configManager.UpdateChannelInConfigFileAsync((SocketGuildChannel)oldChannel, channelConfig);
+    }
+
+    private async Task GuildUpdated(SocketGuild oldGuild, SocketGuild updatedGuild)
+    {
+        await _configManager.UpdateGuildInConfigFileAsync(updatedGuild);
     }
 
     private async Task JoinedGuild(SocketGuild guild)
@@ -106,5 +141,28 @@ internal class Program
     private async Task Ready()
     {
         await _configManager.SetConnectedGuildConfigsAsync(_client.Guilds);
+    }
+
+    private async Task ThreadCreated(SocketThreadChannel channel)
+    {
+        await _configManager.AddChannelToConfigFileAsync(channel);
+    }
+
+    private async Task ThreadDeleted(Cacheable<SocketThreadChannel, ulong> channel)
+    {
+        await _configManager.DeleteChannelFromConfigFileAsync(channel.Value);
+    }
+
+    private async Task ThreadUpdated(Cacheable<SocketThreadChannel, ulong> oldChannel, SocketThreadChannel updatedChannel)
+    {
+        var channelConfig = _configManager.GuildConfigs[updatedChannel.Guild].DiscordChannels.FirstOrDefault(x => x.Id == oldChannel.Id);
+        if (channelConfig is null)
+        {
+            return;
+        }
+
+        channelConfig.Name = updatedChannel.Name;
+
+        await _configManager.UpdateChannelInConfigFileAsync(oldChannel.Value, channelConfig);
     }
 }

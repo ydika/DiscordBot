@@ -69,10 +69,6 @@ namespace DiscordBot.Services
             var configPath = GetConfigPathString(guildConfig.GuildId);
             FileExistsChecking(configPath);
 
-            var oldGuildConfig = GuildConfigs.FirstOrDefault(x => x.Value.GuildId == guildConfig.GuildId);
-            GuildConfigs.Remove(oldGuildConfig.Key);
-            GuildConfigs.Add(oldGuildConfig.Key, guildConfig);
-
             await File.WriteAllTextAsync(configPath, JsonConvert.SerializeObject(guildConfig, _jsonOptions));
         }
 
@@ -82,6 +78,22 @@ namespace DiscordBot.Services
             FileExistsChecking(configPath);
 
             File.Delete(configPath);
+        }
+
+        public async Task UpdateGuildInConfigFileAsync(SocketGuild guild)
+        {
+            if (guild is null)
+            {
+                return;
+            }
+
+            if (!GuildConfigs.TryGetValue(guild, out var guildConfig))
+            {
+                return;
+            }
+
+            guildConfig.Name = guild.Name;
+            await UpdateConfigFileAsync(guildConfig);
         }
 
         public async Task AddChannelToConfigFileAsync(SocketGuildChannel channel)
@@ -125,9 +137,7 @@ namespace DiscordBot.Services
             var foundChannel = guildConfig.DiscordChannels.FirstOrDefault(x => x.Id == channel.Id);
             if (foundChannel is not null)
             {
-                guildConfig.DiscordChannels.Remove(foundChannel);
-                guildConfig.DiscordChannels.Add(channelConfig);
-                guildConfig.DiscordChannels = guildConfig.DiscordChannels.OrderBy(x => x.Type).ToList();
+                foundChannel = channelConfig;
                 await UpdateConfigFileAsync(guildConfig);
             }
         }
@@ -148,7 +158,6 @@ namespace DiscordBot.Services
             if (foundChannel is not null)
             {
                 guildConfig.DiscordChannels.Remove(foundChannel);
-                guildConfig.DiscordChannels = guildConfig.DiscordChannels.OrderBy(x => x.Type).ToList();
                 await UpdateConfigFileAsync(guildConfig);
             }
         }
