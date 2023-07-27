@@ -1,5 +1,5 @@
 ﻿using Discord;
-using Discord.Commands;
+using Discord.Interactions;
 using Discord.WebSocket;
 using DiscordBot.ConfigModels;
 using System;
@@ -9,21 +9,21 @@ using System.Text;
 
 namespace DiscordBot.Services.BotFunctionality.CommandModules
 {
-    public class GeneralCommandModule : ModuleBase
+    public class GeneralCommandModule : InteractionModuleBase<SocketInteractionContext>
     {
-        private CommandService _commandService;
+        private InteractionService _interactions;
         private AppSettings _appSettings;
 
-        public GeneralCommandModule(CommandService commandService, AppSettings appSettings)
+        public GeneralCommandModule(InteractionService interactions, AppSettings appSettings)
         {
-            _commandService = commandService;
+            _interactions = interactions;
             _appSettings = appSettings;
         }
 
-        [Command("help")]
+        [SlashCommand("help", "returns all available commands with description")]
         public async Task HelpCommand()
         {
-            var guildCommands = new List<CommandInfo>();
+            var guildCommands = new List<SlashCommandInfo>();
             if (Context.Channel is SocketDMChannel)
             {
                 guildCommands = GetCommandsCollection(ContextType.DM);
@@ -38,13 +38,13 @@ namespace DiscordBot.Services.BotFunctionality.CommandModules
             }
             else
             {
-                await ReplyAsync("> # Error: Unknown channel type");
+                await RespondAsync("> # Error: Unknown channel type");
                 return;
             }
 
             if (guildCommands.Count == 0)
             {
-                await ReplyAsync("> Commands not found");
+                await RespondAsync("> Commands not found");
                 return;
             }
 
@@ -55,21 +55,21 @@ namespace DiscordBot.Services.BotFunctionality.CommandModules
                 helpMessage.Append($"> {counter}. {command.Name} ");
                 foreach (var parameter in command.Parameters)
                 {
-                    helpMessage.Append($"[{parameter.Type.Name} {parameter.Name}]");
+                    helpMessage.Append($"[{parameter.ParameterType.Name} {parameter.Name}]");
                 }
-                helpMessage.Append($"\n> { (!string.IsNullOrEmpty(command.Summary) ? $"   Summary: {command.Summary}" : "no summary")}\n");
+                helpMessage.Append($"\n> { (!string.IsNullOrEmpty(command.Description) ? $"   Description: {command.Description}" : "no description")}\n");
                 counter++;
             }
             helpMessage.Append("> ```**");
 
-            await ReplyAsync(helpMessage.ToString());
+            await RespondAsync(helpMessage.ToString());
         }
 
-        private List<CommandInfo> GetCommandsCollection(ContextType contextType)
+        private List<SlashCommandInfo> GetCommandsCollection(ContextType contextType)
         {
-            return _commandService.Modules
+            return _interactions.Modules
                 .Where(module => module.Preconditions.OfType<RequireContextAttribute>().Any(x => x.Contexts == contextType))
-                .SelectMany(module => module.Commands).ToList();
+                .SelectMany(module => module.SlashCommands).ToList();
         }
     }
 }

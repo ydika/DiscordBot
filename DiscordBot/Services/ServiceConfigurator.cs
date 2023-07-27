@@ -1,4 +1,7 @@
-﻿using DiscordBot.ConfigModels;
+﻿using Discord;
+using Discord.Interactions;
+using Discord.WebSocket;
+using DiscordBot.ConfigModels;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System;
@@ -18,6 +21,13 @@ namespace DiscordBot.Services
                 .AddEnvironmentVariables()
                 .Build();
 
+            var discordSocketConfig = new DiscordSocketConfig
+            {
+                GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.MessageContent
+            };
+
+            services.AddSingleton(new DiscordSocketClient(discordSocketConfig));
+            services.AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()));
             services.AddSingleton(config);
             services.AddSingleton(provider =>
             {
@@ -27,6 +37,7 @@ namespace DiscordBot.Services
             });
             services.AddSingleton<JsonConfigManager>();
             services.AddSingleton<MessagesManager>();
+            services.AddSingleton<Startup>();
         }
     }
 }

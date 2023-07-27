@@ -1,5 +1,5 @@
 ﻿using Discord;
-using Discord.Commands;
+using Discord.Interactions;
 using Discord.WebSocket;
 using DiscordBot.Services.CommandModules.GuildCommandModules;
 using System;
@@ -18,9 +18,8 @@ namespace DiscordBot.Services.BotFunctionality.CommandModules
             _jsonConfigManager = jsonConfigManager;
         }
 
-        [Command("get_channel_settings")]
-        [Summary("returns channel settings")]
-        public async Task GetChannelSettingsCommand()
+        [SlashCommand("settings", "returns channel settings")]
+        public async Task SettingsCommand()
         {
             var channelConfig = await GetTextChannelConfigAsync((SocketGuildChannel)Context.Channel);
             var properties = new StringBuilder(256).Append($"> # {channelConfig.Name} Channel Settings\n");
@@ -32,12 +31,11 @@ namespace DiscordBot.Services.BotFunctionality.CommandModules
                 }
             }
 
-            await ReplyAsync(properties.ToString());
+            await RespondAsync(properties.ToString());
         }
 
-        [Command("get_allchannel_settings")]
-        [Summary("returns all channel settings")]
-        public async Task GetAllChannelSettingsCommand()
+        [SlashCommand("all-settings", "returns all channel settings")]
+        public async Task AllSettingsCommand()
         {
             var channelConfigs = await GetTextChannelConfigsAsync((SocketGuildChannel)Context.Channel);
             var properties = new StringBuilder(256);
@@ -53,46 +51,49 @@ namespace DiscordBot.Services.BotFunctionality.CommandModules
                 } 
             }
 
-            await ReplyAsync(properties.ToString());
+            await RespondAsync(properties.ToString());
         }
 
-        [Command("delete_all_messages")]
-        [Summary("deletes all messages on the channel")]
-        public async Task DeleteAllMessagesCommand()
+        [SlashCommand("clear", "deletes all messages on the channel")]
+        public async Task ClearCommand()
         {
             var textChannel = (ITextChannel)Context.Channel;
             var messages = await textChannel.GetMessagesAsync().FlattenAsync();
             await textChannel.DeleteMessagesAsync(messages);
+
+            var respondMessage = "All messages have been deleted!\n*This message will be deleted in 10 seconds*";
+            await RespondAsync(respondMessage);
+            messages = await textChannel.GetMessagesAsync().FlattenAsync();
+
+            await Task.Delay(10000);
+            await messages.FirstOrDefault(x => x.Author.IsBot && x.Content == respondMessage).DeleteAsync();
         }
 
-        [Command("turn_on_broom")]
-        [Summary("starts deleting messages on the channel periodically")]
-        public async Task TurnOnBroomCommand()
+        [SlashCommand("broom-on", "starts deleting messages on the channel periodically")]
+        public async Task BroomOnCommand()
         {
             await SetTextChannelSettings((SocketGuildChannel)Context.Channel, true, -1);
-            await ReplyAsync($"Broom for channel **{Context.Channel.Name}** turned on!");
+            await RespondAsync($"Broom for channel **{Context.Channel.Name}** turned on!");
         }
 
-        [Command("turn_off_broom")]
-        [Summary("stops deleting messages on the channel periodically")]
-        public async Task TurnOfBroomCommand()
+        [SlashCommand("broom-off", "stops deleting messages on the channel periodically")]
+        public async Task BroomOffCommand()
         {
             await SetTextChannelSettings((SocketGuildChannel)Context.Channel, false, -1);
-            await ReplyAsync($"Broom for channel **{Context.Channel.Name}** turned off!");
+            await RespondAsync($"Broom for channel **{Context.Channel.Name}** turned off!");
         }
 
-        [Command("set_message_age")]
-        [Summary("sets the age of the message in minutes after which it will be deleted (cannot be less than or equal to zero)")]
-        public async Task SetMessageAgeCommand(int minutes)
+        [SlashCommand("message-age", "sets the age of the message in minutes after which it will be deleted")]
+        public async Task MessageAgeCommand(int minutes)
         {
             if (minutes <= 0)
             {
-                await ReplyAsync($"Message age of **{minutes}** minutes cannot be less than or equal to zero!");
+                await RespondAsync($"Message age of **{minutes}** minutes cannot be less than or equal to zero!");
                 return;
             }
 
             await SetTextChannelSettings((SocketGuildChannel)Context.Channel, false, minutes);
-            await ReplyAsync($"Message age of **{minutes}** minutes for channel **{Context.Channel.Name}** is set!");
+            await RespondAsync($"Message age of **{minutes}** minutes for channel **{Context.Channel.Name}** is set!");
         }
 
         private async Task SetTextChannelSettings(SocketGuildChannel channel, bool isDeleteMessages, int messageAge)

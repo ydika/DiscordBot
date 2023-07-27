@@ -1,5 +1,5 @@
 ﻿using Discord;
-using Discord.Commands;
+using Discord.Interactions;
 using Discord.WebSocket;
 using DiscordBot.Channels;
 using DiscordBot.ConfigModels;
@@ -12,7 +12,7 @@ namespace DiscordBot.Services.CommandModules.GuildCommandModules
 {
     [RequireContext(ContextType.Guild)]
     [RequireUserPermission(ChannelPermission.ManageMessages)]
-    public class GeneralGuildCommandModule : ModuleBase
+    public class GeneralGuildCommandModule : InteractionModuleBase<SocketInteractionContext>
     {
         private JsonConfigManager _jsonConfigManager;
 
