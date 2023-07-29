@@ -1,5 +1,4 @@
 ﻿using Discord.WebSocket;
-using DiscordBot.ConfigModels;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
@@ -7,15 +6,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DiscordBot.Channels
+namespace DiscordBot.ConfigModels
 {
-    public class NewsChannel : TextChannel
+    public class StoreChannel : TextChannel
     {
-        private DefaultNewsChannelSettings _defaultNewsChannelSettings = new DefaultNewsChannelSettings();
-
         public override void SetDefaultValues(IConfigurationRoot config)
         {
-            config.GetSection("DefaultNewsChannelSettings").Bind(_defaultNewsChannelSettings);
+            config.GetSection("DefaultStoreChannelSettings").Bind(this);
             base.SetDefaultValues(config);
         }
     }

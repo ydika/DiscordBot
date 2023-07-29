@@ -1,5 +1,4 @@
 ﻿using Discord.WebSocket;
-using DiscordBot.ConfigModels;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
@@ -7,15 +6,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DiscordBot.Channels
+namespace DiscordBot.ConfigModels
 {
-    public class DMChannel : TextChannel
+    public class VoiceChannel : TextChannel
     {
-        private DefaultDMChannelSettings _defaultDMChannelSettings = new DefaultDMChannelSettings();
-
         public override void SetDefaultValues(IConfigurationRoot config)
         {
-            config.GetSection("DefaultDMChannelSettings").Bind(_defaultDMChannelSettings);
+            config.GetSection("DefaultVoiceChannelSettings").Bind(this);
             base.SetDefaultValues(config);
         }
     }

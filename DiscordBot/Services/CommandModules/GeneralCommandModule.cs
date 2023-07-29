@@ -9,67 +9,69 @@ using System.Text;
 
 namespace DiscordBot.Services.BotFunctionality.CommandModules
 {
-    public class GeneralCommandModule : InteractionModuleBase<SocketInteractionContext>
+    public class GeneralCommandModule : InteractionModuleBase
     {
         private InteractionService _interactions;
-        private AppSettings _appSettings;
+        private JsonConfigManager _jsonConfigManager;
 
-        public GeneralCommandModule(InteractionService interactions, AppSettings appSettings)
+        public GeneralCommandModule(InteractionService interactions, JsonConfigManager jsonConfigManager)
         {
             _interactions = interactions;
-            _appSettings = appSettings;
+            _jsonConfigManager = jsonConfigManager;
         }
 
         [SlashCommand("help", "returns all available commands with description")]
         public async Task HelpCommand()
         {
-            var guildCommands = new List<SlashCommandInfo>();
+            var embed = new EmbedBuilder()
+            {
+                Title = "Commands"
+            };
+            
+            var commands = new List<SlashCommandInfo>();
             if (Context.Channel is SocketDMChannel)
             {
-                guildCommands = GetCommandsCollection(ContextType.DM);
+                commands = GetCommandsCollection(ContextType.DM);
             }
             else if (Context.Channel is SocketGroupChannel)
             {
-                guildCommands = GetCommandsCollection(ContextType.Group);
+                commands = GetCommandsCollection(ContextType.Group);
             }
             else if (Context.Channel is SocketGuildChannel)
             {
-                guildCommands = GetCommandsCollection(ContextType.Guild);
+                embed.Color = new Color((await _jsonConfigManager.GetGuildConfigAsync((SocketGuild)Context.Guild)).EmbedColor);
+                commands = GetCommandsCollection(ContextType.Guild);
             }
             else
             {
-                await RespondAsync("> # Error: Unknown channel type");
+                embed.AddField("Error", "Unknown channel type");
+                await RespondAsync(embed: embed.Build(), ephemeral: true);
                 return;
             }
 
-            if (guildCommands.Count == 0)
+            if (commands.Count == 0)
             {
-                await RespondAsync("> Commands not found");
+                embed.AddField("Error", "Commands not found");
+                await RespondAsync(embed: embed.Build(), ephemeral: true);
                 return;
             }
 
-            var counter = 1;
-            var helpMessage = new StringBuilder(512).Append($"> # Commands\n> **```md\n> Command prefix: {_appSettings.CommandPrefix}\n> \n");
-            foreach (var command in guildCommands)
+            var appCommands = await Context.Guild.GetApplicationCommandsAsync();
+            foreach (var command in commands.OrderBy(x => x.Name))
             {
-                helpMessage.Append($"> {counter}. {command.Name} ");
-                foreach (var parameter in command.Parameters)
-                {
-                    helpMessage.Append($"[{parameter.ParameterType.Name} {parameter.Name}]");
-                }
-                helpMessage.Append($"\n> { (!string.IsNullOrEmpty(command.Description) ? $"   Description: {command.Description}" : "no description")}\n");
-                counter++;
+                embed.AddField($"</{command.Name}:{appCommands.FirstOrDefault(x => x.Name == command.Name).Id}>", $"{command.Description}");
             }
-            helpMessage.Append("> ```**");
 
-            await RespondAsync(helpMessage.ToString());
+            await RespondAsync(embed: embed.Build(), ephemeral: true);
         }
 
         private List<SlashCommandInfo> GetCommandsCollection(ContextType contextType)
         {
             return _interactions.Modules
-                .Where(module => module.Preconditions.OfType<RequireContextAttribute>().Any(x => x.Contexts == contextType))
-                .SelectMany(module => module.SlashCommands).ToList();
+                .Where(module => module.Preconditions.OfType<RequireContextAttribute>().Any(x => x.Contexts == contextType) ||
+                       module.Preconditions.OfType<RequireContextAttribute>().FirstOrDefault() is null)
+                .SelectMany(module => module.SlashCommands)
+                .ToList();
         }
     }
 }

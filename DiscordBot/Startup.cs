@@ -83,7 +83,8 @@ namespace DiscordBot
         private async Task ChannelUpdated(SocketChannel oldChannel, SocketChannel updatedChannel)
         {
             var guildChannel = (SocketGuildChannel)updatedChannel;
-            var channelConfig = _configManager.GuildConfigs[guildChannel.Guild].DiscordChannels.FirstOrDefault(x => x.Id == oldChannel.Id);
+            var guildConfig = await _configManager.GetGuildConfigAsync(guildChannel.Guild);
+            var channelConfig = guildConfig.DiscordChannels.FirstOrDefault(x => x.Id == oldChannel.Id);
             if (channelConfig is null)
             {
                 return;
@@ -107,6 +108,7 @@ namespace DiscordBot
         private async Task JoinedGuild(SocketGuild guild)
         {
             await _configManager.CreateConfigFileAsync(guild);
+            await _interactions.RegisterCommandsToGuildAsync(guild.Id, true);
         }
 
         private Task LeftGuild(SocketGuild guild)
@@ -126,9 +128,8 @@ namespace DiscordBot
             await _configManager.SetConnectedGuildConfigsAsync(_client.Guilds);
             foreach (var guild in _client.Guilds)
             {
-                await guild.DeleteApplicationCommandsAsync();
+                await _interactions.RegisterCommandsToGuildAsync(guild.Id, true);
             }
-            await _interactions.RegisterCommandsGloballyAsync(true);
         }
 
         private async Task ThreadCreated(SocketThreadChannel channel)
@@ -143,7 +144,8 @@ namespace DiscordBot
 
         private async Task ThreadUpdated(Cacheable<SocketThreadChannel, ulong> oldChannel, SocketThreadChannel updatedChannel)
         {
-            var channelConfig = _configManager.GuildConfigs[updatedChannel.Guild].DiscordChannels.FirstOrDefault(x => x.Id == oldChannel.Id);
+            var guildConfig = await _configManager.GetGuildConfigAsync(updatedChannel.Guild);
+            var channelConfig = guildConfig.DiscordChannels.FirstOrDefault(x => x.Id == oldChannel.Id);
             if (channelConfig is null)
             {
                 return;

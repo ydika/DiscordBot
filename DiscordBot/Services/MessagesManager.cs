@@ -1,5 +1,5 @@
 ﻿using Discord;
-using DiscordBot.Channels;
+using DiscordBot.ConfigModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;
