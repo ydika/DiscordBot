@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DiscordBot.Channels
+namespace DiscordBot.ConfigModels
 {
     public abstract class DiscordChannel
     {

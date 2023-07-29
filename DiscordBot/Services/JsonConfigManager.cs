@@ -1,6 +1,5 @@
 ﻿using Discord;
 using Discord.WebSocket;
-using DiscordBot.Channels;
 using DiscordBot.ConfigModels;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
@@ -13,14 +12,16 @@ namespace DiscordBot.Services
 {
     public class JsonConfigManager
     {
-        private AppSettings _appSettings;
-        private ChannelFactory _channelFactory;
-        private JsonSerializerSettings _jsonOptions;
+        private readonly IConfigurationRoot _config;
+        private readonly AppSettings _appSettings;
+        private readonly ChannelFactory _channelFactory;
+        private readonly JsonSerializerSettings _jsonOptions;
 
         public Dictionary<SocketGuild, Guild> GuildConfigs { get; set; }
 
         public JsonConfigManager(IConfigurationRoot config, AppSettings appSettings)
         {
+            _config = config;
             _appSettings = appSettings;
             _channelFactory = new ChannelFactory(config);
             _jsonOptions = new JsonSerializerSettings
@@ -50,9 +51,14 @@ namespace DiscordBot.Services
                     Name = guild.Name,
                     DiscordChannels = _channelFactory.CreateChannels(guild.Channels).OrderBy(x => x.Type).ToList()
                 };
+                guildConfig.SetDefaultValues(_config);
                 GuildConfigs.Add(guild.Channels.FirstOrDefault().Guild, guildConfig);
 
                 await File.WriteAllTextAsync(configPath, JsonConvert.SerializeObject(guildConfig, _jsonOptions));
+            }
+            else
+            {
+                GuildConfigs.Add(guild.Channels.FirstOrDefault().Guild, await ReadConfigFileAsync(guild.Id));
             }
         }
 
@@ -80,6 +86,19 @@ namespace DiscordBot.Services
             File.Delete(configPath);
         }
 
+        private string GetConfigPathString(ulong guildId)
+        {
+            return $".{_appSettings.GuildConfigsPath}\\{guildId}.json";
+        }
+
+        private void FileExistsChecking(string configPath)
+        {
+            if (!File.Exists(configPath))
+            {
+                throw new FileNotFoundException($"Config file not found. Path: {configPath}");
+            }
+        }
+
         public async Task UpdateGuildInConfigFileAsync(SocketGuild guild)
         {
             if (guild is null)
@@ -87,13 +106,21 @@ namespace DiscordBot.Services
                 return;
             }
 
+            var guildConfig = await GetGuildConfigAsync(guild);
+            guildConfig.Name = guild.Name;
+
+            await UpdateConfigFileAsync(guildConfig);
+        }
+
+        public async Task<Guild> GetGuildConfigAsync(SocketGuild guild)
+        {
             if (!GuildConfigs.TryGetValue(guild, out var guildConfig))
             {
-                return;
+                await CreateConfigFileAsync(guild);
+                guildConfig = GuildConfigs[guild];
             }
 
-            guildConfig.Name = guild.Name;
-            await UpdateConfigFileAsync(guildConfig);
+            return guildConfig;
         }
 
         public async Task AddChannelToConfigFileAsync(SocketGuildChannel channel)
@@ -106,10 +133,7 @@ namespace DiscordBot.Services
             var channelType = (ChannelType)channel.GetChannelType();
             if (ChannelDictionary.ChannelTypeMap.TryGetValue(channelType, out var channelClass))
             {
-                if (!GuildConfigs.TryGetValue(channel.Guild, out var guildConfig))
-                {
-                    return;
-                }
+                var guildConfig = await GetGuildConfigAsync(channel.Guild);
 
                 var discordChannel = _channelFactory.CreateChannel(channelClass, channel);
                 guildConfig.DiscordChannels.Add(discordChannel);
@@ -129,10 +153,7 @@ namespace DiscordBot.Services
                 return;
             }
 
-            if (!GuildConfigs.TryGetValue(channel.Guild, out var guildConfig))
-            {
-                return;
-            }
+            var guildConfig = await GetGuildConfigAsync(channel.Guild);
 
             var foundChannel = guildConfig.DiscordChannels.FirstOrDefault(x => x.Id == channel.Id);
             if (foundChannel is not null)
@@ -149,10 +170,7 @@ namespace DiscordBot.Services
                 return;
             }
 
-            if (!GuildConfigs.TryGetValue(channel.Guild, out var guildConfig))
-            {
-                return;
-            }
+            var guildConfig = await GetGuildConfigAsync(channel.Guild);
 
             var foundChannel = guildConfig.DiscordChannels.FirstOrDefault(x => x.Id == channel.Id);
             if (foundChannel is not null)
@@ -162,17 +180,23 @@ namespace DiscordBot.Services
             }
         }
 
-        private string GetConfigPathString(ulong guildId)
+        public async Task<TextChannel> GetTextChannelConfigAsync(SocketGuildChannel channel)
         {
-            return $".{_appSettings.GuildConfigsPath}\\{guildId}.json";
+            var guildConfig = await GetGuildConfigAsync(channel.Guild);
+            var channelConfig = (TextChannel)guildConfig.DiscordChannels.FirstOrDefault(x => x.Id == channel.Id);
+            if (channelConfig is null)
+            {
+                await AddChannelToConfigFileAsync(channel);
+                channelConfig = (TextChannel)guildConfig.DiscordChannels.FirstOrDefault(x => x.Id == channel.Id);
+            }
+
+            return channelConfig;
         }
 
-        private void FileExistsChecking(string configPath)
+        public async Task<List<TextChannel>> GetTextChannelConfigsAsync(SocketGuildChannel channel)
         {
-            if (!File.Exists(configPath))
-            {
-                throw new FileNotFoundException($"Config file not found. Path: {configPath}");
-            }
+            var guildConfig = await GetGuildConfigAsync(channel.Guild);
+            return guildConfig.DiscordChannels.OfType<TextChannel>().ToList();
         }
     }
 }

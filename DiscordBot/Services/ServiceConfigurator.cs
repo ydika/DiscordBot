@@ -18,6 +18,7 @@ namespace DiscordBot.Services
             var config = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json")
                 .AddJsonFile("defaultchannelsettings.json")
+                .AddJsonFile("defaultguildsettings.json")
                 .AddEnvironmentVariables()
                 .Build();
 
