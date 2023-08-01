@@ -2,12 +2,13 @@
 using Discord.Interactions;
 using Discord.WebSocket;
 using DiscordBot.ConfigModels;
+using DiscordBot.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace DiscordBot.Services.BotFunctionality.CommandModules
+namespace DiscordBot.CommandModules
 {
     public class GeneralCommandModule : InteractionModuleBase
     {
@@ -27,7 +28,7 @@ namespace DiscordBot.Services.BotFunctionality.CommandModules
             {
                 Title = "Commands"
             };
-            
+
             var commands = new List<SlashCommandInfo>();
             if (Context.Channel is SocketDMChannel)
             {

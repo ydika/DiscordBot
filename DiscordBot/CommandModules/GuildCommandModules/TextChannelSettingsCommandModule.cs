@@ -1,13 +1,14 @@
 ﻿using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
+using DiscordBot.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DiscordBot.Services.CommandModules.GuildCommandModules
+namespace DiscordBot.CommandModules.GuildCommandModules
 {
     [RequireContext(ContextType.Guild)]
     [RequireUserPermission(GuildPermission.Administrator)]
@@ -92,7 +93,7 @@ namespace DiscordBot.Services.CommandModules.GuildCommandModules
         }
 
         [SlashCommand("message-age", "sets the age of the message in minutes after which it will be deleted")]
-        public async Task MessageAgeCommand([MinValue(1)]int minutes)
+        public async Task MessageAgeCommand([MinValue(1)] int minutes)
         {
             var embed = new EmbedBuilder()
             {
