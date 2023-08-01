@@ -24,22 +24,30 @@ namespace DiscordBot.Services
                 foreach (var textChannel in textChannels)
                 {
                     var channel = (ITextChannel)guildPair.Key.GetChannel(textChannel.Id);
-                    await DeleteMessagesFromTextChannelAsync(channel, await channel.GetMessagesAsync().ToArrayAsync(), textChannel.MessageAgeToDelete);
+                    await DeleteMessagesFromTextChannelAsync(channel, await channel.GetMessagesAsync().FlattenAsync(), textChannel.MessageAgeToDelete);
                 }
             }
         }
 
-        private async Task DeleteMessagesFromTextChannelAsync(ITextChannel channel, IEnumerable<IMessage>[] messagePages, int messageAgeToDelete)
+        private async Task DeleteMessagesFromTextChannelAsync(ITextChannel channel, IEnumerable<IMessage> messages, int messageAgeToDelete)
         {
+            var messageAge = new TimeSpan();
             var messagesToDelete = new List<IMessage>();
-            foreach (var messagePage in messagePages)
+            foreach (var message in messages)
             {
-                foreach (var message in messagePage)
+                messageAge = DateTime.Now - message.CreatedAt;
+                if (messageAge.Minutes < messageAgeToDelete)
                 {
-                    if ((DateTime.Now - message.CreatedAt).Minutes > TimeSpan.FromSeconds(messageAgeToDelete).Minutes)
-                    {
-                        messagesToDelete.Add(message);
-                    }
+                    continue;
+                }
+
+                if (messageAge.Days <= 14)
+                {
+                    messagesToDelete.Add(message);
+                }
+                else
+                {
+                    await channel.DeleteMessageAsync(message);
                 }
             }
             await channel.DeleteMessagesAsync(messagesToDelete);
