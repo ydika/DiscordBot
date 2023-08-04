@@ -1,6 +1,7 @@
 ﻿using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
+using DiscordBot.Attributes;
 using DiscordBot.ConfigModels;
 using DiscordBot.Services;
 using System;
@@ -12,8 +13,8 @@ namespace DiscordBot.CommandModules
 {
     public class GeneralCommandModule : InteractionModuleBase
     {
-        private InteractionService _interactions;
-        private JsonConfigManager _jsonConfigManager;
+        private readonly InteractionService _interactions;
+        private readonly JsonConfigManager _jsonConfigManager;
 
         public GeneralCommandModule(InteractionService interactions, JsonConfigManager jsonConfigManager)
         {
@@ -21,6 +22,7 @@ namespace DiscordBot.CommandModules
             _jsonConfigManager = jsonConfigManager;
         }
 
+        [CallLimit(2, 60)]
         [SlashCommand("help", "returns all available commands with description")]
         public async Task HelpCommand()
         {

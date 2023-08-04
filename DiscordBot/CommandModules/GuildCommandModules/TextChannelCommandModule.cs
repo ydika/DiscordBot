@@ -1,6 +1,7 @@
 ﻿using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
+using DiscordBot.Attributes;
 using DiscordBot.Services;
 using System;
 using System.Collections.Generic;
@@ -13,72 +14,66 @@ namespace DiscordBot.CommandModules.GuildCommandModules
     [RequireUserPermission(GuildPermission.ManageMessages)]
     public class TextChannelCommandModule : InteractionModuleBase
     {
-        private JsonConfigManager _jsonConfigManager;
+        private readonly JsonConfigManager _jsonConfigManager;
 
         public TextChannelCommandModule(JsonConfigManager jsonConfigManager)
         {
             _jsonConfigManager = jsonConfigManager;
         }
 
+        [CallLimit(1, 60)]
         [SlashCommand("clear", "deletes all messages on the channel")]
         public async Task ClearCommand()
         {
             await DeferAsync();
 
-            var embed = new EmbedBuilder()
-            {
-                Color = (await _jsonConfigManager.GetGuildConfigAsync((SocketGuild)Context.Guild)).EmbedColor
-            };
-
             var textChannel = (ITextChannel)Context.Channel;
             var messages = await textChannel.GetMessagesAsync(int.MaxValue).FlattenAsync();
-            if (messages.Count() == 0)
-            {
-                embed.Title = "Messages not found";
-                await FollowupAsync(embed: embed.Build());
-                return;
-            }
 
-            await ClearMessages(embed, textChannel, messages, "All messages have been deleted!");
+            await ClearMessagesOnChannel(Context.Interaction.Id, textChannel, messages.ToList(), "All messages have been deleted!");
         }
 
+        [CallLimit(1, 60)]
         [SlashCommand("clear-user", "deletes all messages of the user on the channel")]
         public async Task ClearUserCommand(SocketGuildUser user)
         {
             await DeferAsync();
 
+            var textChannel = (ITextChannel)Context.Channel;
+            var userMessages = (await textChannel.GetMessagesAsync(int.MaxValue).FlattenAsync()).Where(x => x.Author.Id == user.Id);
+
+            await ClearMessagesOnChannel(Context.Interaction.Id, textChannel, userMessages.ToList(), $"All messages of the user *{user.Username}* on the channel are deleted!");
+        }
+
+        private async Task ClearMessagesOnChannel(ulong interactionId, ITextChannel textChannel, List<IMessage> messages, string title)
+        {
             var embed = new EmbedBuilder()
             {
                 Color = (await _jsonConfigManager.GetGuildConfigAsync((SocketGuild)Context.Guild)).EmbedColor
             };
 
-            var textChannel = (ITextChannel)Context.Channel;
-            var userMessages = (await textChannel.GetMessagesAsync(int.MaxValue).FlattenAsync()).Where(x => x.Author.Id == user.Id);
-            if (userMessages.Count() == 0)
+            var botMessage = messages.FirstOrDefault(x => x.Interaction?.Id == interactionId);
+            if (messages.Count == 0 || messages.Count == 1 && botMessage is not null)
             {
-                embed.Title = "User messages not found";
+                embed.Title = "Messages not found";
                 await FollowupAsync(embed: embed.Build());
                 return;
             }
+            
+            messages.Remove(botMessage);
 
-            await ClearMessages(embed, textChannel, userMessages, $"All messages of the user *{user.Username}* on the channel are deleted!");
-        }
-
-        private async Task ClearMessages(EmbedBuilder embed, ITextChannel textChannel, IEnumerable<IMessage> messages, string title)
-        {
             await textChannel.DeleteMessagesAsync(messages.Where(x => (DateTime.Now - x.CreatedAt).Days <= 14));
-
             foreach (var message in messages.Where(x => (DateTime.Now - x.CreatedAt).Days > 14))
             {
                 await textChannel.DeleteMessageAsync(message);
+                await Task.Delay(600);
             }
 
-            embed.Title = $"{title}\n{messages.Count()} messages deleted\n*This message will be deleted in 10 seconds*";
-            await FollowupAsync(embed: embed.Build());
-            messages = await textChannel.GetMessagesAsync().FlattenAsync();
+            embed.Title = $"{title}\n{messages.Count} messages deleted\n*This message will be deleted in 10 seconds*";
 
+            var response = await FollowupAsync(embed: embed.Build());
             await Task.Delay(10000);
-            await messages.FirstOrDefault(x => x.Author.IsBot && x.Embeds.Any(x => (Embed)x == embed.Build())).DeleteAsync();
+            await response.DeleteAsync();
         }
     }
 }
