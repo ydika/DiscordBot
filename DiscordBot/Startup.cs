@@ -37,9 +37,10 @@ namespace DiscordBot
         {
             await _interactions.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
 
-            _ = Task.Run(() => PeriodicallyDeleteMessages());
+            RegisterInteractionsEvents();
+            RegisterClientEvents();
 
-            RegisterEvents();
+            _ = Task.Run(() => PeriodicallyDeleteMessages());
 
             await _client.LoginAsync(TokenType.Bot, _appSettings.Token);
             await _client.StartAsync();
@@ -54,7 +55,26 @@ namespace DiscordBot
             }
         }
 
-        private void RegisterEvents()
+        private void RegisterInteractionsEvents()
+        {
+            _interactions.SlashCommandExecuted += SlashCommandExecuted;
+        }
+
+        private async Task SlashCommandExecuted(SlashCommandInfo command, IInteractionContext context, IResult result)
+        {
+            var embed = new EmbedBuilder()
+            {
+                Color = (await _configManager.GetGuildConfigAsync((SocketGuild)context.Guild)).EmbedColor,
+                Title = result.ErrorReason
+            };
+
+            if (!result.IsSuccess)
+            {
+                await context.Interaction.RespondAsync(embed: embed.Build(), ephemeral: true);
+            }
+        }
+
+        private void RegisterClientEvents()
         {
             _client.ChannelCreated += ChannelCreated;
             _client.ChannelDestroyed += ChannelDestroyed;

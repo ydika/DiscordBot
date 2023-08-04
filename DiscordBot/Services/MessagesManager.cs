@@ -9,7 +9,7 @@ namespace DiscordBot.Services
 {
     public class MessagesManager
     {
-        private JsonConfigManager _configManager;
+        private readonly JsonConfigManager _configManager;
 
         public MessagesManager(JsonConfigManager configManager)
         {
@@ -48,6 +48,7 @@ namespace DiscordBot.Services
                 else
                 {
                     await channel.DeleteMessageAsync(message);
+                    await Task.Delay(600);
                 }
             }
             await channel.DeleteMessagesAsync(messagesToDelete);

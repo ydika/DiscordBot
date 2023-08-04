@@ -1,6 +1,7 @@
 ﻿using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
+using DiscordBot.Attributes;
 using DiscordBot.Services;
 using System;
 using System.Collections.Generic;
@@ -14,13 +15,14 @@ namespace DiscordBot.CommandModules.GuildCommandModules
     [RequireUserPermission(GuildPermission.Administrator)]
     public class TextChannelSettingsCommandModule : InteractionModuleBase
     {
-        private JsonConfigManager _jsonConfigManager;
+        private readonly JsonConfigManager _jsonConfigManager;
 
         public TextChannelSettingsCommandModule(JsonConfigManager jsonConfigManager)
         {
             _jsonConfigManager = jsonConfigManager;
         }
 
+        [CallLimit(2, 60)]
         [SlashCommand("broom-off", "stops deleting messages on the channel periodically")]
         public async Task BroomOffCommand()
         {
@@ -32,6 +34,7 @@ namespace DiscordBot.CommandModules.GuildCommandModules
             }.Build());
         }
 
+        [CallLimit(2, 60)]
         [SlashCommand("broom-on", "starts deleting messages on the channel periodically")]
         public async Task BroomOnCommand()
         {
@@ -43,6 +46,7 @@ namespace DiscordBot.CommandModules.GuildCommandModules
             }.Build());
         }
 
+        [CallLimit(2, 60)]
         [SlashCommand("ch-config", "returns channel config")]
         public async Task ChannelConfigCommand()
         {
@@ -64,6 +68,7 @@ namespace DiscordBot.CommandModules.GuildCommandModules
             await RespondAsync(embed: embed.Build(), ephemeral: true);
         }
 
+        [CallLimit(2, 60)]
         [SlashCommand("ch-configs", "returns all channel configs")]
         public async Task ChannelConfigsCommand()
         {
@@ -92,6 +97,7 @@ namespace DiscordBot.CommandModules.GuildCommandModules
             await RespondAsync(embed: embed.Build(), ephemeral: true);
         }
 
+        [CallLimit(2, 60)]
         [SlashCommand("message-age", "sets the age of the message in minutes after which it will be deleted")]
         public async Task MessageAgeCommand([MinValue(1)] int minutes)
         {

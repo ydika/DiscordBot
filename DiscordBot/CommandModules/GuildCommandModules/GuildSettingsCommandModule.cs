@@ -1,6 +1,7 @@
 ﻿using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
+using DiscordBot.Attributes;
 using DiscordBot.Services;
 using System;
 using System.Collections.Generic;
@@ -14,13 +15,14 @@ namespace DiscordBot.CommandModules.GuildCommandModules
     [RequireUserPermission(GuildPermission.Administrator)]
     public class GuildSettingsCommandModule : InteractionModuleBase
     {
-        private JsonConfigManager _jsonConfigManager;
+        private readonly JsonConfigManager _jsonConfigManager;
 
         public GuildSettingsCommandModule(JsonConfigManager jsonConfigManager)
         {
             _jsonConfigManager = jsonConfigManager;
         }
 
+        [CallLimit(1, 60)]
         [SlashCommand("embed-color", "sets the color for embed")]
         public async Task EmbedColorCommand([MinLength(6)][MaxLength(7)] string hex)
         {
@@ -46,6 +48,7 @@ namespace DiscordBot.CommandModules.GuildCommandModules
             await RespondAsync(embed: embed.Build());
         }
 
+        [CallLimit(2, 60)]
         [SlashCommand("guild-config", "returns guild config")]
         public async Task GuildConfigCommand()
         {
