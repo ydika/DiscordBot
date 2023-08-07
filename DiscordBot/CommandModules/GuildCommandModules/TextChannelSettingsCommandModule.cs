@@ -15,11 +15,11 @@ namespace DiscordBot.CommandModules.GuildCommandModules
     [RequireUserPermission(GuildPermission.Administrator)]
     public class TextChannelSettingsCommandModule : InteractionModuleBase
     {
-        private readonly JsonConfigManager _jsonConfigManager;
+        private readonly JsonConfigRepository _jsonConfigRepository;
 
-        public TextChannelSettingsCommandModule(JsonConfigManager jsonConfigManager)
+        public TextChannelSettingsCommandModule(JsonConfigRepository jsonConfigRepository)
         {
-            _jsonConfigManager = jsonConfigManager;
+            _jsonConfigRepository = jsonConfigRepository;
         }
 
         [CallLimit(2, 60)]
@@ -29,7 +29,7 @@ namespace DiscordBot.CommandModules.GuildCommandModules
             await SetTextChannelSettings((SocketGuildChannel)Context.Channel, false, -1);
             await RespondAsync(embed: new EmbedBuilder()
             {
-                Color = (await _jsonConfigManager.GetGuildConfigAsync((SocketGuild)Context.Guild)).EmbedColor,
+                Color = (await _jsonConfigRepository.GetGuildConfigAsync((SocketGuild)Context.Guild)).EmbedColor,
                 Title = $"Broom for channel *{Context.Channel.Name}* turned off!"
             }.Build());
         }
@@ -41,7 +41,7 @@ namespace DiscordBot.CommandModules.GuildCommandModules
             await SetTextChannelSettings((SocketGuildChannel)Context.Channel, true, -1);
             await RespondAsync(embed: new EmbedBuilder()
             {
-                Color = (await _jsonConfigManager.GetGuildConfigAsync((SocketGuild)Context.Guild)).EmbedColor,
+                Color = (await _jsonConfigRepository.GetGuildConfigAsync((SocketGuild)Context.Guild)).EmbedColor,
                 Title = $"Broom for channel *{Context.Channel.Name}* turned on!"
             }.Build());
         }
@@ -50,10 +50,10 @@ namespace DiscordBot.CommandModules.GuildCommandModules
         [SlashCommand("ch-config", "returns channel config")]
         public async Task ChannelConfigCommand()
         {
-            var channelConfig = await _jsonConfigManager.GetTextChannelConfigAsync((SocketGuildChannel)Context.Channel);
+            var channelConfig = await _jsonConfigRepository.GetTextChannelConfigAsync((SocketGuildChannel)Context.Channel);
             var embed = new EmbedBuilder()
             {
-                Color = (await _jsonConfigManager.GetGuildConfigAsync((SocketGuild)Context.Guild)).EmbedColor,
+                Color = (await _jsonConfigRepository.GetGuildConfigAsync((SocketGuild)Context.Guild)).EmbedColor,
                 Title = $"*{channelConfig.Name}* Channel Config"
             };
 
@@ -72,10 +72,10 @@ namespace DiscordBot.CommandModules.GuildCommandModules
         [SlashCommand("ch-configs", "returns all channel configs")]
         public async Task ChannelConfigsCommand()
         {
-            var channelConfigs = await _jsonConfigManager.GetTextChannelConfigsAsync((SocketGuildChannel)Context.Channel);
+            var channelConfigs = await _jsonConfigRepository.GetTextChannelConfigsAsync((SocketGuildChannel)Context.Channel);
             var embed = new EmbedBuilder()
             {
-                Color = (await _jsonConfigManager.GetGuildConfigAsync((SocketGuild)Context.Guild)).EmbedColor,
+                Color = (await _jsonConfigRepository.GetGuildConfigAsync((SocketGuild)Context.Guild)).EmbedColor,
                 Title = $"All Channel Configs"
             };
 
@@ -103,7 +103,7 @@ namespace DiscordBot.CommandModules.GuildCommandModules
         {
             var embed = new EmbedBuilder()
             {
-                Color = (await _jsonConfigManager.GetGuildConfigAsync((SocketGuild)Context.Guild)).EmbedColor
+                Color = (await _jsonConfigRepository.GetGuildConfigAsync((SocketGuild)Context.Guild)).EmbedColor
             };
 
             if (minutes <= 0)
@@ -121,7 +121,7 @@ namespace DiscordBot.CommandModules.GuildCommandModules
 
         private async Task SetTextChannelSettings(SocketGuildChannel channel, bool isDeleteMessages, int messageAge)
         {
-            var channelConfig = await _jsonConfigManager.GetTextChannelConfigAsync(channel);
+            var channelConfig = await _jsonConfigRepository.GetTextChannelConfigAsync(channel);
 
             if (messageAge > 0)
             {
@@ -132,7 +132,7 @@ namespace DiscordBot.CommandModules.GuildCommandModules
                 channelConfig.IsDeleteMessages = isDeleteMessages;
             }
 
-            await _jsonConfigManager.UpdateChannelInConfigFileAsync(channel, channelConfig);
+            await _jsonConfigRepository.UpdateChannelInConfigFileAsync(channel, channelConfig);
         }
     }
 }

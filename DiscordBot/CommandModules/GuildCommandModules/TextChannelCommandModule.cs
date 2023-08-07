@@ -14,11 +14,11 @@ namespace DiscordBot.CommandModules.GuildCommandModules
     [RequireUserPermission(GuildPermission.ManageMessages)]
     public class TextChannelCommandModule : InteractionModuleBase
     {
-        private readonly JsonConfigManager _jsonConfigManager;
+        private readonly JsonConfigRepository _jsonConfigRepository;
 
-        public TextChannelCommandModule(JsonConfigManager jsonConfigManager)
+        public TextChannelCommandModule(JsonConfigRepository jsonConfigRepository)
         {
-            _jsonConfigManager = jsonConfigManager;
+            _jsonConfigRepository = jsonConfigRepository;
         }
 
         [CallLimit(1, 60)]
@@ -49,7 +49,7 @@ namespace DiscordBot.CommandModules.GuildCommandModules
         {
             var embed = new EmbedBuilder()
             {
-                Color = (await _jsonConfigManager.GetGuildConfigAsync((SocketGuild)Context.Guild)).EmbedColor
+                Color = (await _jsonConfigRepository.GetGuildConfigAsync((SocketGuild)Context.Guild)).EmbedColor
             };
 
             var botMessage = messages.FirstOrDefault(x => x.Interaction?.Id == interactionId);

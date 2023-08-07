@@ -15,18 +15,18 @@ namespace DiscordBot.CommandModules.GuildCommandModules
     [RequireUserPermission(GuildPermission.Administrator)]
     public class GuildSettingsCommandModule : InteractionModuleBase
     {
-        private readonly JsonConfigManager _jsonConfigManager;
+        private readonly JsonConfigRepository _jsonConfigRepository;
 
-        public GuildSettingsCommandModule(JsonConfigManager jsonConfigManager)
+        public GuildSettingsCommandModule(JsonConfigRepository jsonConfigRepository)
         {
-            _jsonConfigManager = jsonConfigManager;
+            _jsonConfigRepository = jsonConfigRepository;
         }
 
         [CallLimit(1, 60)]
         [SlashCommand("embed-color", "sets the color for embed")]
         public async Task EmbedColorCommand([MinLength(6)][MaxLength(7)] string hex)
         {
-            var guildConfig = await _jsonConfigManager.GetGuildConfigAsync((SocketGuild)Context.Guild);
+            var guildConfig = await _jsonConfigRepository.GetGuildConfigAsync((SocketGuild)Context.Guild);
             var embed = new EmbedBuilder()
             {
                 Color = guildConfig.EmbedColor,
@@ -41,7 +41,7 @@ namespace DiscordBot.CommandModules.GuildCommandModules
             }
 
             guildConfig.EmbedColor = embedColor;
-            await _jsonConfigManager.UpdateConfigFileAsync(guildConfig);
+            await _jsonConfigRepository.UpdateConfigFileAsync(guildConfig);
 
             embed.Color = embedColor;
             embed.Title = "Embed color changed";
@@ -52,10 +52,10 @@ namespace DiscordBot.CommandModules.GuildCommandModules
         [SlashCommand("guild-config", "returns guild config")]
         public async Task GuildConfigCommand()
         {
-            var guildConfig = await _jsonConfigManager.GetGuildConfigAsync((SocketGuild)Context.Guild);
+            var guildConfig = await _jsonConfigRepository.GetGuildConfigAsync((SocketGuild)Context.Guild);
             var embed = new EmbedBuilder()
             {
-                Color = (await _jsonConfigManager.GetGuildConfigAsync((SocketGuild)Context.Guild)).EmbedColor,
+                Color = (await _jsonConfigRepository.GetGuildConfigAsync((SocketGuild)Context.Guild)).EmbedColor,
                 Title = $"*{guildConfig.Name}* Guild Config"
             };
 
