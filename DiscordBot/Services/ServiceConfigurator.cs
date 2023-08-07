@@ -36,8 +36,9 @@ namespace DiscordBot.Services
                 config.GetSection("AppSettings").Bind(settings);
                 return settings;
             });
-            services.AddSingleton<JsonConfigManager>();
-            services.AddSingleton<MessagesManager>();
+            services.AddSingleton<AudioService>();
+            services.AddSingleton<JsonConfigRepository>();
+            services.AddSingleton<MessagesHandler>();
             services.AddSingleton<Startup>();
         }
     }

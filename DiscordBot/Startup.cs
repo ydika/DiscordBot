@@ -19,18 +19,18 @@ namespace DiscordBot
         private readonly InteractionService _interactions;
 
         private readonly AppSettings _appSettings;
-        private readonly JsonConfigManager _configManager;
-        private readonly MessagesManager _messagesManager;
+        private readonly JsonConfigRepository _configRepository;
+        private readonly MessagesHandler _messagesHandler;
 
         public Startup(IServiceProvider services, DiscordSocketClient client, InteractionService interactions,
-            AppSettings appSettings, JsonConfigManager configManager, MessagesManager messagesManager)
+            AppSettings appSettings, JsonConfigRepository configRepository, MessagesHandler messagesHandler)
         {
             _services = services;
             _client = client;
             _interactions = interactions;
             _appSettings = appSettings;
-            _configManager = configManager;
-            _messagesManager = messagesManager;
+            _configRepository = configRepository;
+            _messagesHandler = messagesHandler;
         }
 
         public async Task RunAsync()
@@ -50,7 +50,7 @@ namespace DiscordBot
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                await _messagesManager.DeleteMessagesFromTextChannelsAsync();
+                await _messagesHandler.DeleteMessagesFromTextChannelsAsync();
                 await Task.Delay(TimeSpan.FromMinutes(1), cancellationToken);
             }
         }
@@ -64,7 +64,7 @@ namespace DiscordBot
         {
             var embed = new EmbedBuilder()
             {
-                Color = (await _configManager.GetGuildConfigAsync((SocketGuild)context.Guild)).EmbedColor,
+                Color = (await _configRepository.GetGuildConfigAsync((SocketGuild)context.Guild)).EmbedColor,
                 Title = result.ErrorReason
             };
 
@@ -92,18 +92,18 @@ namespace DiscordBot
 
         private async Task ChannelCreated(SocketChannel channel)
         {
-            await _configManager.AddChannelToConfigFileAsync((SocketGuildChannel)channel);
+            await _configRepository.AddChannelToConfigFileAsync((SocketGuildChannel)channel);
         }
 
         private async Task ChannelDestroyed(SocketChannel channel)
         {
-            await _configManager.DeleteChannelFromConfigFileAsync((SocketGuildChannel)channel);
+            await _configRepository.DeleteChannelFromConfigFileAsync((SocketGuildChannel)channel);
         }
 
         private async Task ChannelUpdated(SocketChannel oldChannel, SocketChannel updatedChannel)
         {
             var guildChannel = (SocketGuildChannel)updatedChannel;
-            var guildConfig = await _configManager.GetGuildConfigAsync(guildChannel.Guild);
+            var guildConfig = await _configRepository.GetGuildConfigAsync(guildChannel.Guild);
             var channelConfig = guildConfig.DiscordChannels.FirstOrDefault(x => x.Id == oldChannel.Id);
             if (channelConfig is null)
             {
@@ -112,12 +112,12 @@ namespace DiscordBot
 
             channelConfig.Name = guildChannel.Name;
 
-            await _configManager.UpdateChannelInConfigFileAsync((SocketGuildChannel)oldChannel, channelConfig);
+            await _configRepository.UpdateChannelInConfigFileAsync((SocketGuildChannel)oldChannel, channelConfig);
         }
 
         private async Task GuildUpdated(SocketGuild oldGuild, SocketGuild updatedGuild)
         {
-            await _configManager.UpdateGuildInConfigFileAsync(updatedGuild);
+            await _configRepository.UpdateGuildInConfigFileAsync(updatedGuild);
         }
 
         private async Task HandleInteractionAsync(SocketInteraction interaction)
@@ -127,13 +127,13 @@ namespace DiscordBot
 
         private async Task JoinedGuild(SocketGuild guild)
         {
-            await _configManager.CreateConfigFileAsync(guild);
+            await _configRepository.CreateConfigFileAsync(guild);
             await _interactions.RegisterCommandsToGuildAsync(guild.Id, true);
         }
 
         private Task LeftGuild(SocketGuild guild)
         {
-            _configManager.GuildConfigs.Remove(guild);
+            _configRepository.GuildConfigs.Remove(guild.Id);
             return Task.CompletedTask;
         }
 
@@ -145,7 +145,7 @@ namespace DiscordBot
 
         private async Task Ready()
         {
-            await _configManager.SetConnectedGuildConfigsAsync(_client.Guilds);
+            await _configRepository.SetConnectedGuildConfigsAsync(_client.Guilds);
             foreach (var guild in _client.Guilds)
             {
                 await _interactions.RegisterCommandsToGuildAsync(guild.Id, true);
@@ -154,17 +154,17 @@ namespace DiscordBot
 
         private async Task ThreadCreated(SocketThreadChannel channel)
         {
-            await _configManager.AddChannelToConfigFileAsync(channel);
+            await _configRepository.AddChannelToConfigFileAsync(channel);
         }
 
         private async Task ThreadDeleted(Cacheable<SocketThreadChannel, ulong> channel)
         {
-            await _configManager.DeleteChannelFromConfigFileAsync(channel.Value);
+            await _configRepository.DeleteChannelFromConfigFileAsync(channel.Value);
         }
 
         private async Task ThreadUpdated(Cacheable<SocketThreadChannel, ulong> oldChannel, SocketThreadChannel updatedChannel)
         {
-            var guildConfig = await _configManager.GetGuildConfigAsync(updatedChannel.Guild);
+            var guildConfig = await _configRepository.GetGuildConfigAsync(updatedChannel.Guild);
             var channelConfig = guildConfig.DiscordChannels.FirstOrDefault(x => x.Id == oldChannel.Id);
             if (channelConfig is null)
             {
@@ -173,7 +173,7 @@ namespace DiscordBot
 
             channelConfig.Name = updatedChannel.Name;
 
-            await _configManager.UpdateChannelInConfigFileAsync(oldChannel.Value, channelConfig);
+            await _configRepository.UpdateChannelInConfigFileAsync(oldChannel.Value, channelConfig);
         }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using Discord;
+using Discord.WebSocket;
 using DiscordBot.ConfigModels;
 using System;
 using System.Collections.Generic;
@@ -7,23 +8,26 @@ using System.Text;
 
 namespace DiscordBot.Services
 {
-    public class MessagesManager
+    public class MessagesHandler
     {
-        private readonly JsonConfigManager _configManager;
+        private readonly DiscordSocketClient _client;
 
-        public MessagesManager(JsonConfigManager configManager)
+        private readonly JsonConfigRepository _configRepository;
+
+        public MessagesHandler(DiscordSocketClient client, JsonConfigRepository configRepository)
         {
-            _configManager = configManager;
+            _client = client;
+            _configRepository = configRepository;
         }
 
         public async Task DeleteMessagesFromTextChannelsAsync()
         {
-            foreach (var guildPair in _configManager.GuildConfigs)
+            foreach (var guildPair in _configRepository.GuildConfigs)
             {
                 var textChannels = guildPair.Value.DiscordChannels.OfType<TextChannel>().Where(x => x.IsDeleteMessages).ToList();
                 foreach (var textChannel in textChannels)
                 {
-                    var channel = (ITextChannel)guildPair.Key.GetChannel(textChannel.Id);
+                    var channel = (ITextChannel)_client.Guilds.FirstOrDefault(x => x.Id == guildPair.Key).GetChannel(textChannel.Id);
                     await DeleteMessagesFromTextChannelAsync(channel, await channel.GetMessagesAsync().FlattenAsync(), textChannel.MessageAgeToDelete);
                 }
             }

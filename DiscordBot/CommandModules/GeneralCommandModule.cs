@@ -14,12 +14,12 @@ namespace DiscordBot.CommandModules
     public class GeneralCommandModule : InteractionModuleBase
     {
         private readonly InteractionService _interactions;
-        private readonly JsonConfigManager _jsonConfigManager;
+        private readonly JsonConfigRepository _jsonConfigRepository;
 
-        public GeneralCommandModule(InteractionService interactions, JsonConfigManager jsonConfigManager)
+        public GeneralCommandModule(InteractionService interactions, JsonConfigRepository jsonConfigRepository)
         {
             _interactions = interactions;
-            _jsonConfigManager = jsonConfigManager;
+            _jsonConfigRepository = jsonConfigRepository;
         }
 
         [CallLimit(2, 60)]
@@ -42,7 +42,7 @@ namespace DiscordBot.CommandModules
             }
             else if (Context.Channel is SocketGuildChannel)
             {
-                embed.Color = new Color((await _jsonConfigManager.GetGuildConfigAsync((SocketGuild)Context.Guild)).EmbedColor);
+                embed.Color = new Color((await _jsonConfigRepository.GetGuildConfigAsync((SocketGuild)Context.Guild)).EmbedColor);
                 commands = GetCommandsCollection(ContextType.Guild);
             }
             else
