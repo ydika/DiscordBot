@@ -14,47 +14,67 @@ namespace DiscordBot.Services
     {
         private readonly string _ytdlpPath;
         private readonly string _ffmpegPath;
-        private Dictionary<ulong, Process> _audioProcesses;
+        private Dictionary<ulong, Queue<ProcessStartInfo>> _audioQueues;
 
         public AudioService()
         {
             _ytdlpPath = Path.GetFullPath($".\\yt-dlp.exe");
             _ffmpegPath = Path.GetFullPath($".\\ffmpeg.exe");
-            _audioProcesses = new Dictionary<ulong, Process>();
+            _audioQueues = new Dictionary<ulong, Queue<ProcessStartInfo>>();
         }
 
-        public async Task PlayAudioAsync(ulong guildId, IAudioClient audioClient, string path)
+        public async Task PlayAudioAsync(ulong guildId, IVoiceChannel voiceChannel, string path)
         {
-            var ffmpeg = CreateAudioStream(path);
-            _audioProcesses.Add(guildId, ffmpeg);
-
-            var discord = audioClient.CreatePCMStream(AudioApplication.Music);
-            await ffmpeg.StandardOutput.BaseStream.CopyToAsync(discord);
-            await discord.FlushAsync();
-        }
-
-        private Process CreateAudioStream(string path)
-        {
-            return Process.Start(new ProcessStartInfo
+            var audioProcessInfo = CreateAudioProcessStartInfo(path);
+            if (!_audioQueues.TryGetValue(guildId, out var audioQueue))
             {
-                FileName = "cmd.exe",
-                Arguments = $"/C {_ytdlpPath} -o - {path} | {_ffmpegPath} -i pipe:0 -f s16le -ar 48000 -ac 2 pipe:1",
-                CreateNoWindow = true,
-                RedirectStandardInput = false,
-                RedirectStandardOutput = true,
-                UseShellExecute = false
-            });
+                _audioQueues.Add(guildId, new Queue<ProcessStartInfo>(new ProcessStartInfo[] { audioProcessInfo }));
+
+                var audioClient = await voiceChannel.ConnectAsync();
+                audioClient.Disconnected += (exception) =>
+                {
+                    _audioQueues.Remove(guildId);
+                    return Task.CompletedTask;
+                };
+
+                _ = Task.Run(async () =>
+                {
+                    await CreateAudioStreamAsync(_audioQueues[guildId], audioClient, audioProcessInfo);
+
+                    await voiceChannel.DisconnectAsync();
+                });
+            }
+            else
+            {
+                audioQueue.Enqueue(audioProcessInfo);
+            }
         }
 
-        public void CloseAudioStream(ulong guildId)
+        private ProcessStartInfo CreateAudioProcessStartInfo(string path) => new ProcessStartInfo
         {
-            if (!_audioProcesses.TryGetValue(guildId, out var ffmpeg))
+            FileName = "cmd.exe",
+            Arguments = $"/C {_ytdlpPath} -o - {path} | {_ffmpegPath} -i pipe:0 -f s16le -ar 48000 -ac 2 pipe:1",
+            CreateNoWindow = true,
+            RedirectStandardInput = false,
+            RedirectStandardOutput = true,
+            UseShellExecute = false
+        };
+
+        private async Task CreateAudioStreamAsync(Queue<ProcessStartInfo> audioQueue, IAudioClient audioClient, ProcessStartInfo audioProcessInfo)
+        {
+            using (var outStream = audioClient.CreatePCMStream(AudioApplication.Music))
             {
-                return;
+                using var process = Process.Start(audioProcessInfo);
+                await process.StandardOutput.BaseStream.CopyToAsync(outStream);
+
+                audioQueue.Dequeue();
+                await outStream.FlushAsync();
             }
 
-            _audioProcesses.Remove(guildId);
-            ffmpeg.Close();
+            if (audioQueue.Count > 0)
+            {
+                await CreateAudioStreamAsync(audioQueue, audioClient, audioQueue.Peek());
+            }
         }
     }
 }
