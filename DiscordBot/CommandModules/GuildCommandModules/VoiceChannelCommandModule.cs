@@ -25,7 +25,7 @@ namespace DiscordBot.CommandModules.GuildCommandModules
             _jsonConfigRepository = jsonConfigRepository;
         }
 
-        [CallLimit(1, 60)]
+        [CallLimit(3, 60)]
         [SlashCommand("play", "plays music in specified path")]
         public async Task PlayCommandAsync(string path)
         {
@@ -44,36 +44,10 @@ namespace DiscordBot.CommandModules.GuildCommandModules
                 return;
             }
 
-            _audioService.CloseAudioStream(Context.Guild.Id);
-            await _audioService.PlayAudioAsync(Context.Guild.Id, await voiceChannel.ConnectAsync(), path);
+            await _audioService.PlayAudioAsync(Context.Guild.Id, voiceChannel, path);
 
-            embed.Title = "Music playback completed";
+            embed.Title = $"Added to queue\n{path}";
             await FollowupAsync(embed: embed.Build());
-        }
-
-        [CallLimit(1, 60)]
-        [SlashCommand("leave", "leaves the voice channel the user is in")]
-        public async Task LeaveCommandAsync()
-        {
-            var embed = new EmbedBuilder()
-            {
-                Color = (await _jsonConfigRepository.GetGuildConfigAsync((SocketGuild)Context.Guild)).EmbedColor
-            };
-
-            var voiceChannel = ((IGuildUser)Context.User).VoiceChannel;
-            if (voiceChannel is null || voiceChannel != (await Context.Guild.GetCurrentUserAsync()).VoiceChannel)
-            {
-                embed.Title = "Bot is not in the voice channel";
-                await RespondAsync(embed: embed.Build());
-                return;
-            }
-
-            _audioService.CloseAudioStream(Context.Guild.Id);
-
-            await voiceChannel.DisconnectAsync();
-
-            embed.Title = $"Bot left the channel *{Context.Channel.Name}*";
-            await RespondAsync(embed: embed.Build());
         }
     }
 }

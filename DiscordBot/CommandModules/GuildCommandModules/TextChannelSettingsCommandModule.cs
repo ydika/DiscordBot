@@ -2,6 +2,7 @@
 using Discord.Interactions;
 using Discord.WebSocket;
 using DiscordBot.Attributes;
+using DiscordBot.ConfigModels;
 using DiscordBot.Services;
 using System;
 using System.Collections.Generic;
@@ -59,9 +60,9 @@ namespace DiscordBot.CommandModules.GuildCommandModules
 
             foreach (var property in channelConfig.GetType().GetProperties())
             {
-                if (property.DeclaringType == channelConfig.GetType())
+                if (property.DeclaringType != typeof(DiscordChannel))
                 {
-                    embed.AddField($"{property.Name}", $"{property.GetValue(channelConfig)}");
+                    embed.AddField(property.Name, property.GetValue(channelConfig));
                 }
             }
 
@@ -84,13 +85,13 @@ namespace DiscordBot.CommandModules.GuildCommandModules
             {
                 foreach (var property in channelConfig.GetType().GetProperties())
                 {
-                    if (property.DeclaringType == channelConfig.GetType())
+                    if (property.DeclaringType != typeof(DiscordChannel))
                     {
                         properties.Append($"{property.Name} : {property.GetValue(channelConfig)}\n");
                     }
                 }
 
-                embed.AddField($"{channelConfig.Name}", $"{(!string.IsNullOrEmpty(properties.ToString()) ? properties : "default config missing")}", true);
+                embed.AddField(channelConfig.Name, properties, true);
                 properties.Clear();
             }
 
